@@ -83,8 +83,12 @@ alltripscountyfinal <- alltripscounty %>%
 # Dataset for merginf with Covid Vaccination percentage
 County.Trip.Covid <- 
   aggregate(
-  Number.of.Long.Trips ~ County.FIPS + County.Name, data = alltripscountyfinal , 
+  Number.of.Long.Trips ~ County.FIPS + County.Name, data = alltripscountyfinal, 
   FUN=mean)
+
+# Round the mean trips with 0 decimal places
+County.Trip.Covid$Number.of.Long.Trips = 
+  round(County.Trip.Covid$Number.of.Long.Trips,0)
 
 head(County.Trip.Covid)
 
@@ -95,7 +99,7 @@ covvac <- read.csv('COVID-19_Vaccinations_CA_OR_WA.csv', header = TRUE,
 # Creating a dataframe with only the required columns
 covvac <- covvac %>%
   select(Date, FIPS, Recip_County, Recip_State, Series_Complete_Pop_Pct,
-         Series_Complete_Yes, Completeness_pct)
+         Series_Complete_Yes)
 
 # Format the date column
 covvac <- covvac %>%
@@ -127,6 +131,17 @@ County.Trip.Covid <- County.Trip.Covid %>%
 # Calculating the county population using percent vaccinated and
 # total number of vaccinated people
 County.Trip.Covid$County.POP = 
-  County.Trip.Covid$Series_Complete_Yes/County.Trip.Covid$Series_Complete_Pop_Pct
+ County.Trip.Covid$Series_Complete_Yes*100/County.Trip.Covid$Series_Complete_Pop_Pct
+
+# Round population to 0 decimal places
+County.Trip.Covid$County.POP = round(County.Trip.Covid$County.POP,0)
+
+# Check if both county column names are excatly the same for 125 remaining
+sum(County.Trip.Covid$County.Name==County.Trip.Covid$Recip_County)==125
+
+# Drop date and one of the county names column after merge
+County.Trip.Covid$Date <- NULL
+County.Trip.Covid$County.Name <- NULL
 
 summary(County.Trip.Covid)
+
