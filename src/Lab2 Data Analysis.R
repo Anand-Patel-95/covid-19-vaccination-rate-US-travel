@@ -17,6 +17,8 @@ column_classes <- c("character", "Date", "character", "character",
 
 # Read the input file with the trips information in the sates of California, 
 # Oregon and Washington.
+#getwd()
+setwd("/home/jovyan/W203/Lab2/V1.1/lab-2-section8-team5-lab2-avv/src/data")
 alltrips <- read.csv('Trips_by_Distance.csv', header = TRUE, colClasses= column_classes,
                      stringsAsFactors = FALSE)
 
@@ -77,14 +79,14 @@ alltripscountyfinal <- alltripscounty %>%
          County.Name,
          Date,
          Number.of.Long.Trips
-         )
+  )
 
 # Taking 8-day average of the long trips by each county
 # Dataset for merginf with Covid Vaccination percentage
 County.Trip.Covid <- 
   aggregate(
-  Number.of.Long.Trips ~ County.FIPS + County.Name, data = alltripscountyfinal, 
-  FUN=mean)
+    Number.of.Long.Trips ~ County.FIPS + County.Name, data = alltripscountyfinal, 
+    FUN=mean)
 
 # Round the mean trips with 0 decimal places
 County.Trip.Covid$Number.of.Long.Trips = 
@@ -94,7 +96,7 @@ head(County.Trip.Covid)
 
 # Load the Covid vaccination percentage file for CA, OR & WA
 covvac <- read.csv('COVID-19_Vaccinations_CA_OR_WA.csv', header = TRUE,
-                     stringsAsFactors = FALSE)
+                   stringsAsFactors = FALSE)
 
 # Creating a dataframe with only the required columns
 covvac <- covvac %>%
@@ -131,7 +133,7 @@ County.Trip.Covid <- County.Trip.Covid %>%
 # Calculating the county population using percent vaccinated and
 # total number of vaccinated people
 County.Trip.Covid$County.POP = 
- County.Trip.Covid$Series_Complete_Yes*100/County.Trip.Covid$Series_Complete_Pop_Pct
+  County.Trip.Covid$Series_Complete_Yes*100/County.Trip.Covid$Series_Complete_Pop_Pct
 
 # Round population to 0 decimal places
 County.Trip.Covid$County.POP = round(County.Trip.Covid$County.POP,0)
@@ -145,3 +147,61 @@ County.Trip.Covid$County.Name <- NULL
 
 summary(County.Trip.Covid)
 
+# Load the Data for County Median Income. First create the datatype for the csv else the FIPS gets loaded as integer rather than character
+df_income_datatype <- c("character", "character", "character", 
+                    "integer", "numeric", "integer")
+
+df_income = read.csv("Median_Income.csv", header = TRUE, colClasses= df_income_datatype,
+                     stringsAsFactors = FALSE)
+
+# Join Median Income with County.Trip.Covid dataframe
+df_county_ot_cov1_3 <- dplyr::inner_join(County.Trip.Covid, df_income, by = "County.FIPS")
+
+# Sanity Check Data
+# head(df_income)
+# str(df_income)
+#length(unique(df_income$County.FIPS))
+
+# Load the Data for Party Affiliation
+df_PreferredParty_datatype <- c("character", "character", "character", 
+                        "integer", "integer", "integer", "numeric", "numeric", "numeric")
+
+df_PreferredParty = read.csv("Party_Inclination_County_v2.csv", header = TRUE, colClasses= df_PreferredParty_datatype,
+                     stringsAsFactors = FALSE)
+
+# Rename df_PreferredParty$county_fips column to County.FIPS
+df_PreferredParty <- df_PreferredParty %>%
+  rename(County.FIPS = county_fips)
+
+str(df_PreferredParty)
+# Create a new column for Party Affiliation DF and run the logic to identify the party inclination parameter
+df_PreferredParty <- df_PreferredParty %>%
+  select (
+    state_name, County.FIPS, county_name, votes_gop, votes_dem, total_votes, diff,
+    per_gop, per_dem, per_point_diff
+  ) %>%
+  mutate(
+    party_affiliate = case_when(
+      votes_gop > votes_dem ~ "1",
+      TRUE                  ~ "0"
+    )
+  )
+
+# Sanity Check Data
+head(df_PreferredParty)
+str(df_PreferredParty)
+length(unique(df_PreferredParty$county_fips))
+
+# Join Party Affiliation with Previous Dataframe
+df_county_ot_cov1_2_3 <- dplyr::inner_join(df_county_ot_cov1_3, df_PreferredParty, by = "County.FIPS")
+
+# Validate if any rows got dropped.
+length(unique(County.Trip.Covid$County.FIPS))
+length(unique(df_county_ot_cov1_3$County.FIPS))
+length(unique(df_county_ot_cov1_2_3$County.FIPS))
+str(df_county_ot_cov1_2_3)
+
+# Remove all the unwanted column to create the final dataframe
+df_aftercleanup <- df_county_ot_cov1_2_3 %>%
+  select (County.FIPS, Number.of.Long.Trips, Recip_County, Recip_State.x, Series_Complete_Pop_Pct, Series_Complete_Yes,
+          County.POP, County_Median_Income, Income_CountyMedian_vs_StateMedian, Recip_State_Median_Income, party_affiliate)
