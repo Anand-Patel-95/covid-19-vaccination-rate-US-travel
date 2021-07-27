@@ -34,6 +34,7 @@ listings_sanfrancisco_airbnb_df <- read.csv("./src/data/listings_sanfrancisco_ai
 # https://www.littlemissdata.com/blog/inspectdf 
 devtools::install_github("alastairrushworth/inspectdf")
 ```
+
 ```{r}
 library(inspectdf)
 library(readr)
@@ -55,7 +56,18 @@ inspect_cat(data) %>% show_plot(col_palette = 5)
 
 inspect_cor(data) %>% show_plot(col_palette = 5)
 
+inspect_na(data) %>% show_plot(col_palette = 5)
 
 
 ```
+
+
+$$\text{Long_Distance_Trips } =   \beta_0 +  \beta_1    \text{Fully_Vaccinated_Pct}$$
+
+$$\text{Long_Distance_Trips } =   \beta_0 +  \beta_1    \text{Fully_Vaccinated_Pct } + \beta_2    \text{Median_County_Income } + \beta_3    \text{County_Population }$$
+
+$$\text{Long_Distance_Trips } =   \beta_0 +  \beta_1    \text{Fully_Vaccinated_Pct } + \beta_2    \text{Median_County_Income } + \beta_3    \text{County_Population } + \beta_4    \text{County_Party_Leaning }$$
+
+
+
 

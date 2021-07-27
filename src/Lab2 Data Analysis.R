@@ -18,7 +18,11 @@ column_classes <- c("character", "Date", "character", "character",
 # Read the input file with the trips information in the sates of California, 
 # Oregon and Washington.
 #getwd()
-setwd("/home/jovyan/W203/Lab2/V1.1/lab-2-section8-team5-lab2-avv/src/data")
+# setwd("/home/jovyan/W203/Lab2/V1.1/lab-2-section8-team5-lab2-avv/src/data")
+
+# on anand's pc:
+setwd("/home/rstudio/w203/lab-2-section8-team5-lab2-avv/src/data")
+
 alltrips <- read.csv('Trips_by_Distance.csv', header = TRUE, colClasses= column_classes,
                      stringsAsFactors = FALSE)
 
@@ -82,7 +86,7 @@ alltripscountyfinal <- alltripscounty %>%
   )
 
 # Taking 8-day average of the long trips by each county
-# Dataset for merginf with Covid Vaccination percentage
+# Dataset for merging with Covid Vaccination percentage
 County.Trip.Covid <- 
   aggregate(
     Number.of.Long.Trips ~ County.FIPS + County.Name, data = alltripscountyfinal, 
@@ -138,7 +142,7 @@ County.Trip.Covid$County.POP =
 # Round population to 0 decimal places
 County.Trip.Covid$County.POP = round(County.Trip.Covid$County.POP,0)
 
-# Check if both county column names are excatly the same for 125 remaining
+# Check if both county column names are exactly the same for 125 remaining
 sum(County.Trip.Covid$County.Name==County.Trip.Covid$Recip_County)==125
 
 # Drop date and one of the county names column after merge
@@ -205,3 +209,9 @@ str(df_county_ot_cov1_2_3)
 df_aftercleanup <- df_county_ot_cov1_2_3 %>%
   select (County.FIPS, Number.of.Long.Trips, Recip_County, Recip_State.x, Series_Complete_Pop_Pct, Series_Complete_Yes,
           County.POP, County_Median_Income, Income_CountyMedian_vs_StateMedian, Recip_State_Median_Income, party_affiliate)
+
+# rename party_affiliate to isRepublican
+df_aftercleanup <- df_aftercleanup %>%
+  rename(isRepublican = party_affiliate)
+
+write.csv(df_aftercleanup,'final_data_v0.csv')

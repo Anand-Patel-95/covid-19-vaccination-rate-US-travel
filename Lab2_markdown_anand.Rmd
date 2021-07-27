@@ -1,0 +1,191 @@
+---
+title: "Lab2_markdown_anand"
+author: "Anand Patel"
+date: "7/26/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(magrittr)
+library(ggplot2)
+library(patchwork)
+library(sandwich)
+library(lmtest)
+library(stargazer)
+
+```
+
+
+Load in the dataset.
+
+```{r}
+# on anand's computer:
+setwd("/home/rstudio/w203/lab-2-section8-team5-lab2-avv/src/data")
+
+column_classes <- c("character", "numeric", "character", "character", 
+                    "numeric", "integer", "numeric", "integer", "numeric",
+                    "integer", "character")
+
+trips.vs.vaccine.df <- read.csv('final_data_v0.csv', header = TRUE, stringsAsFactors = FALSE)
+```
+
+
+```{r include=FALSE}
+get_robust_se <- function(model) { 
+    require(sandwich)
+    
+    sqrt(diag(sandwich::vcovHC(model)))
+  }
+```
+
+
+
+## Exploratory Data Analysis
+
+```{r conduct EDA in this chunk}
+
+
+# untransformed length vs views
+d_scatter <- trips.vs.vaccine.df %>% 
+  ggplot() + 
+  aes(x = (Series_Complete_Pop_Pct), y= (Number.of.Long.Trips)) + 
+  geom_smooth(method='lm', se=FALSE, alpha=0.8) +
+  geom_point(alpha = 0.1) +
+  labs(
+    title    = 'Number of Long Trips Taken vs. Vaccination %',
+    x        = 'Vaccination %',
+    y        = 'Number of Long Trips Taken', 
+    fill     = ''
+  ) +
+  theme_light()
+
+d_scatter
+
+
+# log transformed on length and views both.
+d_scatter <- trips.vs.vaccine.df %>% 
+  ggplot() + 
+  aes(x = (Series_Complete_Pop_Pct), y= log10(Number.of.Long.Trips)) + 
+  geom_smooth(method='lm', se=FALSE, alpha=0.8) +
+  geom_point(alpha = 0.1) +
+  labs(
+    title    = 'Number of Long Trips Taken vs. Vaccination %',
+    x        = 'Vaccination %',
+    y        = 'Number of Long Trips Taken log(10)', 
+    fill     = ''
+  ) +
+  theme_light()
+
+d_scatter
+
+```
+
+
+```{r message=FALSE}
+
+# plot the scatter plot
+trips.vs.vaccine.df %>% 
+  select(Number.of.Long.Trips, Series_Complete_Pop_Pct, isRepublican) %>% 
+  mutate(isRepublican = factor(isRepublican, levels=c("1", "0"))) %>% 
+  ggplot(aes(x=Series_Complete_Pop_Pct, y=log10(Number.of.Long.Trips), color=isRepublican)) +
+  geom_point(alpha=0.7) + theme_classic() +
+  geom_smooth(method='lm', se=FALSE, alpha=0.8) + 
+  scale_color_manual(values=c("red", "blue")) +
+  theme(legend.position="bottom") + 
+  labs(
+    title="Relationship between Vaccination % and Number of Long Trips Taken",
+    subtitle="Interaction Terms between isRepublican and % of Vaccinated Population",
+    x="% of Vaccinated Population", y="Number of Long Trips Taken", color=NULL 
+  )
+```
+
+
+
+
+```{r}
+# 1) untransformed data
+pairs(~Number.of.Long.Trips + Series_Complete_Pop_Pct + County.POP + County_Median_Income + isRepublican, data = trips.vs.vaccine.df)
+
+# 2) log10 transformed `Number.of.Long.Trips`
+pairs(~log10(Number.of.Long.Trips) + Series_Complete_Pop_Pct + County.POP + County_Median_Income + isRepublican, data = trips.vs.vaccine.df)
+
+# 3) log10 transformed `Number.of.Long.Trips`, log10 transformed `County.POP`
+pairs(~log10(Number.of.Long.Trips) + Series_Complete_Pop_Pct + log10(County.POP) + (County_Median_Income) + isRepublican, data = trips.vs.vaccine.df)
+```
+
+
+## Create models
+
+```{r}
+model_limited = lm(formula = log10(Number.of.Long.Trips) ~ Series_Complete_Pop_Pct, data = trips.vs.vaccine.df)
+
+model_2 = lm(formula = log10(Number.of.Long.Trips) ~ Series_Complete_Pop_Pct + log10(County.POP) + County_Median_Income, data = trips.vs.vaccine.df)
+
+model_3 = lm(formula = log10(Number.of.Long.Trips) ~ Series_Complete_Pop_Pct + log10(County.POP) + County_Median_Income + isRepublican, data = trips.vs.vaccine.df)
+
+```
+
+```{r}
+plot(model_limited)
+```
+```{r}
+bptest(model_limited)
+
+```
+
+
+
+```{r}
+plot(model_2)
+```
+
+
+```{r}
+bptest(model_2)
+
+```
+
+
+```{r}
+plot(model_3)
+```
+
+
+```{r}
+bptest(model_3)
+```
+
+
+Using Robust Standard Errors
+
+```{r}
+stargazer(
+   model_limited, model_2, model_3,
+   type = 'text',
+   se = list(get_robust_se(model_limited), get_robust_se(model_2), get_robust_se(model_3)) # use robust standard errors
+   )
+```
+
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
