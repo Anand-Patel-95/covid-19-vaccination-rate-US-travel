@@ -23,15 +23,15 @@ library(car)
 
 Load in the dataset.
 
-```{r}
+```{r message=FALSE, include=FALSE}
 # on anand's computer:
 setwd("/home/rstudio/w203/lab-2-section8-team5-lab2-avv/src/data")
 
-column_classes <- c("character", "numeric", "character", "character", 
-                    "numeric", "integer", "numeric", "integer", "numeric",
-                    "integer", "character")
+# column_classes <- c("character", "numeric", "character", "character", "numeric", "integer", "numeric", "integer", "numeric", "integer", "character")
 
-trips.vs.vaccine.df <- read.csv('final_data_v0.csv', header = TRUE, stringsAsFactors = FALSE)
+trips.vs.vaccine.df <- read.csv('final_data_v1.csv', header = TRUE, stringsAsFactors = FALSE)
+
+trips.vs.vaccine.df$X <- NULL
 ```
 
 

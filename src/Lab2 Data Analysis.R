@@ -98,6 +98,8 @@ County.Trip.Covid$Number.of.Long.Trips =
 
 head(County.Trip.Covid)
 
+## Covid Vaccine Data Processing -----------------------------------------------
+
 # Load the Covid vaccination percentage file for CA, OR & WA
 covvac <- read.csv('COVID-19_Vaccinations_CA_OR_WA.csv', header = TRUE,
                    stringsAsFactors = FALSE)
@@ -121,7 +123,7 @@ str(covvac)
 covvac <- covvac %>%
   filter(Date == as.Date("2021-05-01"))
 
-# Inner Join Trip dataframe and Covid vaccination dataframe by County.FIPS
+# Inner Join County Trip dataframe and Covid vaccination dataframe by County.FIPS
 County.Trip.Covid <- dplyr::inner_join(County.Trip.Covid, covvac, by = "County.FIPS")
 
 head(County.Trip.Covid)
@@ -130,6 +132,8 @@ summary(County.Trip.Covid)
 
 # Since 0% vaccinated data in a county will most likely mean no data available
 # We exclude those rows
+
+# Also the vaccine data might not be reported b/c CA doesn't if the county has less than 20,000 people
 County.Trip.Covid <- County.Trip.Covid %>%
   filter(Series_Complete_Pop_Pct != 0.00)
 
@@ -151,9 +155,12 @@ County.Trip.Covid$County.Name <- NULL
 
 summary(County.Trip.Covid)
 
+
+## Median Income Dataset -------------------------------------------------------
+
 # Load the Data for County Median Income. First create the datatype for the csv else the FIPS gets loaded as integer rather than character
 df_income_datatype <- c("character", "character", "character", 
-                    "integer", "numeric", "integer")
+                    "integer", "numeric", "integer", "numeric")
 
 df_income = read.csv("Median_Income.csv", header = TRUE, colClasses= df_income_datatype,
                      stringsAsFactors = FALSE)
@@ -164,7 +171,12 @@ df_county_ot_cov1_3 <- dplyr::inner_join(County.Trip.Covid, df_income, by = "Cou
 # Sanity Check Data
 # head(df_income)
 # str(df_income)
-#length(unique(df_income$County.FIPS))
+#length(unique(df_county_ot_cov1_3$County.FIPS))
+
+
+
+
+## Party Affiliation ------------------------------------------------------------
 
 # Load the Data for Party Affiliation
 df_PreferredParty_datatype <- c("character", "character", "character", 
@@ -194,7 +206,7 @@ df_PreferredParty <- df_PreferredParty %>%
 # Sanity Check Data
 head(df_PreferredParty)
 str(df_PreferredParty)
-length(unique(df_PreferredParty$county_fips))
+length(unique(df_PreferredParty$County.FIPS))
 
 # Join Party Affiliation with Previous Dataframe
 df_county_ot_cov1_2_3 <- dplyr::inner_join(df_county_ot_cov1_3, df_PreferredParty, by = "County.FIPS")
@@ -208,10 +220,62 @@ str(df_county_ot_cov1_2_3)
 # Remove all the unwanted column to create the final dataframe
 df_aftercleanup <- df_county_ot_cov1_2_3 %>%
   select (County.FIPS, Number.of.Long.Trips, Recip_County, Recip_State.x, Series_Complete_Pop_Pct, Series_Complete_Yes,
-          County.POP, County_Median_Income, Income_CountyMedian_vs_StateMedian, Recip_State_Median_Income, party_affiliate)
+          County.POP, County_Median_Income, Income_CountyMedian_vs_StateMedian, Recip_State_Median_Income, party_affiliate, unemployment_pct_2020)
 
 # rename party_affiliate to isRepublican
 df_aftercleanup <- df_aftercleanup %>%
   rename(isRepublican = party_affiliate)
 
-write.csv(df_aftercleanup,'final_data_v0.csv')
+str(df_aftercleanup)
+
+
+
+## Median Age ------------------------------------------------------------------
+
+## Load in age data
+df_AgebyCounty = read.csv("CC-EST2020-AGESEX_CA-OR-WA.csv", header = TRUE,
+                             stringsAsFactors = FALSE)
+
+# Subset the data set to only county for Year = 13 (2020) and get row for every county in CA, OR, Wa
+df_AgebyCounty <- 
+  df_AgebyCounty %>%
+  filter(YEAR == 13)
+
+# select only the relevant columns
+df_AgebyCounty <- df_AgebyCounty %>%
+  select (STNAME, CTYNAME, POPESTIMATE, AGE18PLUS_TOT, AGE65PLUS_TOT, MEDIAN_AGE_TOT)
+
+# Rename df_AgebyCounty$CTYNAME column to Recip_County
+df_AgebyCounty <- df_AgebyCounty %>%
+  rename(Recip_County = CTYNAME)
+
+summary(df_AgebyCounty)
+
+# Join Age df with our df_aftercleanup
+df_aftercleanup_age_joined <- dplyr::inner_join(df_aftercleanup, df_AgebyCounty, by = "Recip_County")
+
+# we have duplicate rows since some counties have the same name but belong to different states. 
+# take out all rows that have states mismatched after the join
+df_aftercleanup2 <- subset(df_aftercleanup_age_joined, 
+        (df_aftercleanup_age_joined$Recip_State.x == "WA" & df_aftercleanup_age_joined$STNAME == "Washington") | 
+         (df_aftercleanup_age_joined$Recip_State.x == "OR" & df_aftercleanup_age_joined$STNAME == "Oregon") | 
+          (df_aftercleanup_age_joined$Recip_State.x == "CA" & df_aftercleanup_age_joined$STNAME == "California")) # Apply subset function
+
+
+summary(df_aftercleanup2)
+length(unique(df_aftercleanup2$County.FIPS))
+str(df_aftercleanup2)
+
+df_aftercleanup2$STNAME <- NULL
+# rename POPESTIMATE to POPESTIMATE_2020
+df_aftercleanup2 <- df_aftercleanup2 %>%
+  rename(POPESTIMATE_2020 = POPESTIMATE)
+
+str(df_aftercleanup2)
+
+
+## Pick selected columns and save to csv ---------------------------------------
+
+
+
+write.csv(df_aftercleanup2,'final_data_v1.csv')
