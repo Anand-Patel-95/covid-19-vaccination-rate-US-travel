@@ -50,7 +50,7 @@ get_robust_se <- function(model) {
 ```{r conduct EDA in this chunk}
 
 
-# untransformed length vs views
+# untransformed Number.of.Long.Trips vs Series_Complete_Pop_Pct
 d_scatter <- trips.vs.vaccine.df %>% 
   ggplot() + 
   aes(x = (Series_Complete_Pop_Pct), y= (Number.of.Long.Trips)) + 
@@ -67,7 +67,7 @@ d_scatter <- trips.vs.vaccine.df %>%
 d_scatter
 
 
-# log transformed on length and views both.
+# log transformed on Number.of.Long.Trips.
 d_scatter <- trips.vs.vaccine.df %>% 
   ggplot() + 
   aes(x = (Series_Complete_Pop_Pct), y= log10(Number.of.Long.Trips)) + 
@@ -88,7 +88,8 @@ d_scatter
 
 ```{r message=FALSE}
 
-# plot the scatter plot
+# plot the scatter plot, with interaction terms
+
 trips.vs.vaccine.df %>% 
   select(Number.of.Long.Trips, Series_Complete_Pop_Pct, isRepublican) %>% 
   mutate(isRepublican = factor(isRepublican, levels=c("1", "0"))) %>% 
@@ -99,7 +100,7 @@ trips.vs.vaccine.df %>%
   theme(legend.position="bottom") + 
   labs(
     title="Relationship between Vaccination % and Number of Long Trips Taken",
-    subtitle="Interaction Terms between isRepublican and % of Vaccinated Population",
+    subtitle="Interaction Terms between isRepublican (red) and % of Vaccinated Population",
     x="% of Vaccinated Population", y="Number of Long Trips Taken", color=NULL 
   )
 ```
@@ -110,17 +111,43 @@ trips.vs.vaccine.df %>%
 ```
 
 
+Correlation Matrix between terms of interest.
+
+```{r}
+
+# Just for our analysis, no need to include in report
+
+install.packages("inspectdf")
+library(inspectdf)
+
+# Creating a dataframe with only the required columns
+data_unlabeled <- trips.vs.vaccine.df %>% 
+  select(Number.of.Long.Trips, 
+         Series_Complete_Pop_Pct,
+         County.POP,
+         County_Median_Income,
+         Income_CountyMedian_vs_StateMedian,
+         isRepublican,
+         unemployment_pct_2020,
+         MEDIAN_AGE_TOT
+  )
+
+inspect_cor(data_unlabeled) %>% show_plot(col_palette = 5)
+
+```
+
+
 
 
 ```{r}
 # 1) untransformed data
-pairs(~Number.of.Long.Trips + Series_Complete_Pop_Pct + County.POP + County_Median_Income + isRepublican, data = trips.vs.vaccine.df)
+pairs(~Number.of.Long.Trips + Series_Complete_Pop_Pct + County.POP + County_Median_Income + isRepublican + unemployment_pct_2020 + MEDIAN_AGE_TOT, data = trips.vs.vaccine.df)
 
 # 2) log10 transformed `Number.of.Long.Trips`
-pairs(~log10(Number.of.Long.Trips) + Series_Complete_Pop_Pct + County.POP + County_Median_Income + isRepublican, data = trips.vs.vaccine.df)
+pairs(~log10(Number.of.Long.Trips) + Series_Complete_Pop_Pct + County.POP + County_Median_Income + isRepublican + unemployment_pct_2020 + MEDIAN_AGE_TOT, data = trips.vs.vaccine.df)
 
 # 3) log10 transformed `Number.of.Long.Trips`, log10 transformed `County.POP`
-pairs(~log10(Number.of.Long.Trips) + Series_Complete_Pop_Pct + log10(County.POP) + log10(County_Median_Income) + isRepublican, data = trips.vs.vaccine.df)
+pairs(~log10(Number.of.Long.Trips) + Series_Complete_Pop_Pct + log10(County.POP) + log10(County_Median_Income) + isRepublican + log10(unemployment_pct_2020) + MEDIAN_AGE_TOT, data = trips.vs.vaccine.df)
 ```
 
 
@@ -131,7 +158,7 @@ model_limited = lm(formula = log10(Number.of.Long.Trips) ~ Series_Complete_Pop_P
 
 model_2 = lm(formula = log10(Number.of.Long.Trips) ~ Series_Complete_Pop_Pct + log10(County.POP) + log10(County_Median_Income), data = trips.vs.vaccine.df)
 
-model_3 = lm(formula = log10(Number.of.Long.Trips) ~ Series_Complete_Pop_Pct + log10(County.POP) + log10(County_Median_Income) + isRepublican, data = trips.vs.vaccine.df)
+model_3 = lm(formula = log10(Number.of.Long.Trips) ~ Series_Complete_Pop_Pct + log10(County.POP) + log10(County_Median_Income) + isRepublican + log10(unemployment_pct_2020) + MEDIAN_AGE_TOT, data = trips.vs.vaccine.df)
 
 ```
 
@@ -192,7 +219,7 @@ bptest(model_3)
 
 Using Robust Standard Errors
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 stargazer(
    model_limited, model_2, model_3,
    type = 'text',
@@ -335,11 +362,19 @@ plot_model_3d <- trips.vs.vaccine.df %>%
   ggplot(aes(x = isRepublican, y = model_3_residuals)) + 
   geom_point() + stat_smooth()
 
-plot_model_3e <- trips.vs.vaccine.df %>%  
+plot_model_3e <- trips.vs.vaccine.df %>% 
+  ggplot(aes(x = log10(unemployment_pct_2020), y = model_3_residuals)) + 
+  geom_point() + stat_smooth()
+
+plot_model_3f <- trips.vs.vaccine.df %>% 
+  ggplot(aes(x = MEDIAN_AGE_TOT, y = model_3_residuals)) + 
+  geom_point() + stat_smooth()
+
+plot_model_3g <- trips.vs.vaccine.df %>%  
   ggplot(aes(x = model_3_prediction, y = model_3_residuals)) + 
   geom_point() + stat_smooth()
 
-(plot_model_3a | plot_model_3b) / (plot_model_3c | plot_model_3d) / plot_model_3e 
+(plot_model_3a | plot_model_3b) / (plot_model_3c | plot_model_3d) / (plot_model_3e | plot_model_3f)
 
 ```
 
