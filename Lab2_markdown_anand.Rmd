@@ -120,7 +120,7 @@ pairs(~Number.of.Long.Trips + Series_Complete_Pop_Pct + County.POP + County_Medi
 pairs(~log10(Number.of.Long.Trips) + Series_Complete_Pop_Pct + County.POP + County_Median_Income + isRepublican, data = trips.vs.vaccine.df)
 
 # 3) log10 transformed `Number.of.Long.Trips`, log10 transformed `County.POP`
-pairs(~log10(Number.of.Long.Trips) + Series_Complete_Pop_Pct + log10(County.POP) + (County_Median_Income) + isRepublican, data = trips.vs.vaccine.df)
+pairs(~log10(Number.of.Long.Trips) + Series_Complete_Pop_Pct + log10(County.POP) + log10(County_Median_Income) + isRepublican, data = trips.vs.vaccine.df)
 ```
 
 
@@ -129,11 +129,35 @@ pairs(~log10(Number.of.Long.Trips) + Series_Complete_Pop_Pct + log10(County.POP)
 ```{r}
 model_limited = lm(formula = log10(Number.of.Long.Trips) ~ Series_Complete_Pop_Pct, data = trips.vs.vaccine.df)
 
-model_2 = lm(formula = log10(Number.of.Long.Trips) ~ Series_Complete_Pop_Pct + log10(County.POP) + County_Median_Income, data = trips.vs.vaccine.df)
+model_2 = lm(formula = log10(Number.of.Long.Trips) ~ Series_Complete_Pop_Pct + log10(County.POP) + log10(County_Median_Income), data = trips.vs.vaccine.df)
 
-model_3 = lm(formula = log10(Number.of.Long.Trips) ~ Series_Complete_Pop_Pct + log10(County.POP) + County_Median_Income + isRepublican, data = trips.vs.vaccine.df)
+model_3 = lm(formula = log10(Number.of.Long.Trips) ~ Series_Complete_Pop_Pct + log10(County.POP) + log10(County_Median_Income) + isRepublican, data = trips.vs.vaccine.df)
 
 ```
+
+
+```{r}
+# add residuals 
+trips.vs.vaccine.df <- trips.vs.vaccine.df %>%  
+  mutate(model_limited_residuals = resid(model_limited)) # model predict - actual
+
+trips.vs.vaccine.df <- trips.vs.vaccine.df %>% 
+  mutate(model_limited_prediction = predict(model_limited))
+
+trips.vs.vaccine.df <- trips.vs.vaccine.df %>%  
+  mutate(model_2_residuals = resid(model_2)) # model predict - actual
+
+trips.vs.vaccine.df <- trips.vs.vaccine.df %>% 
+  mutate(model_2_prediction = predict(model_2))
+
+trips.vs.vaccine.df <- trips.vs.vaccine.df %>%  
+  mutate(model_3_residuals = resid(model_3)) # model predict - actual
+
+trips.vs.vaccine.df <- trips.vs.vaccine.df %>% 
+  mutate(model_3_prediction = predict(model_3))
+```
+
+
 
 ```{r}
 plot(model_limited)
@@ -242,12 +266,81 @@ plot(model_limited,which=1)
 
 
 ```{r}
+# model 1
+
+plot_model_1a <- trips.vs.vaccine.df %>%  
+  ggplot(aes(x = Series_Complete_Pop_Pct, y = log10(Number.of.Long.Trips))) + 
+  geom_point() + stat_smooth()
+
+plot_model_1b <- trips.vs.vaccine.df %>%  
+  ggplot(aes(x = Series_Complete_Pop_Pct, y = model_limited_residuals)) + 
+  geom_point() + stat_smooth()
+
+(plot_model_1a / plot_model_1b)
+
+```
+
+
+
+
+```{r}
 plot(model_2,which=1)
 ```
+```{r}
+# model 2
+
+plot_model_2a <- trips.vs.vaccine.df %>%  
+  ggplot(aes(x = Series_Complete_Pop_Pct, y = model_2_residuals)) + 
+  geom_point() + stat_smooth()
+
+plot_model_2b <- trips.vs.vaccine.df %>% 
+  ggplot(aes(x = log10(County.POP), y = model_2_residuals)) + 
+  geom_point() + stat_smooth()
+
+plot_model_2c <- trips.vs.vaccine.df %>% 
+  ggplot(aes(x = log10(County_Median_Income), y = model_2_residuals)) + 
+  geom_point() + stat_smooth()
+
+plot_model_2d <- trips.vs.vaccine.df %>%  
+  ggplot(aes(x = model_2_prediction, y = model_2_residuals)) + 
+  geom_point() + stat_smooth()
+
+(plot_model_2a | plot_model_2b) / (plot_model_2c | plot_model_2d)
+
+```
+
+
 
 
 ```{r}
 plot(model_3,which=1)
+```
+
+```{r}
+# model 3
+
+plot_model_3a <- trips.vs.vaccine.df %>%  
+  ggplot(aes(x = Series_Complete_Pop_Pct, y = model_3_residuals)) + 
+  geom_point() + stat_smooth()
+
+plot_model_3b <- trips.vs.vaccine.df %>% 
+  ggplot(aes(x = log10(County.POP), y = model_3_residuals)) + 
+  geom_point() + stat_smooth()
+
+plot_model_3c <- trips.vs.vaccine.df %>% 
+  ggplot(aes(x = log10(County_Median_Income), y = model_3_residuals)) + 
+  geom_point() + stat_smooth()
+
+plot_model_3d <- trips.vs.vaccine.df %>% 
+  ggplot(aes(x = isRepublican, y = model_3_residuals)) + 
+  geom_point() + stat_smooth()
+
+plot_model_3e <- trips.vs.vaccine.df %>%  
+  ggplot(aes(x = model_3_prediction, y = model_3_residuals)) + 
+  geom_point() + stat_smooth()
+
+(plot_model_3a | plot_model_3b) / (plot_model_3c | plot_model_3d) / plot_model_3e 
+
 ```
 
 
@@ -255,6 +348,11 @@ plot(model_3,which=1)
 
 ```{r}
 car::vif(model_2)
+
+```
+
+
+```{r}
 car::vif(model_3)
 
 ```
