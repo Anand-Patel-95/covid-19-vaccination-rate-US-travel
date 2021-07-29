@@ -89,6 +89,7 @@ d_scatter
 ```{r message=FALSE}
 
 # plot the scatter plot, with interaction terms
+# ignore this
 
 trips.vs.vaccine.df %>% 
   select(Number.of.Long.Trips, Series_Complete_Pop_Pct, isRepublican) %>% 
@@ -153,7 +154,12 @@ pairs(~log10(Number.of.Long.Trips) + Series_Complete_Pop_Pct + log10(County.POP)
 
 ## Create models
 
+$$\log_{10}{\text{Long_Distance_Trips }} =   \beta_0 +  \beta_1    \text{Fully_Vaccinated_Pct}$$
+
+
+
 ```{r}
+
 model_limited = lm(formula = log10(Number.of.Long.Trips) ~ Series_Complete_Pop_Pct, data = trips.vs.vaccine.df)
 
 model_2 = lm(formula = log10(Number.of.Long.Trips) ~ Series_Complete_Pop_Pct + log10(County.POP) + log10(County_Median_Income), data = trips.vs.vaccine.df)
@@ -161,6 +167,8 @@ model_2 = lm(formula = log10(Number.of.Long.Trips) ~ Series_Complete_Pop_Pct + l
 model_3 = lm(formula = log10(Number.of.Long.Trips) ~ Series_Complete_Pop_Pct + log10(County.POP) + log10(County_Median_Income) + isRepublican + log10(unemployment_pct_2020) + MEDIAN_AGE_TOT, data = trips.vs.vaccine.df)
 
 ```
+
+#### Run ANOVA f-tests to see if extra predictors explain more variance
 
 
 ```{r}
@@ -189,6 +197,8 @@ trips.vs.vaccine.df <- trips.vs.vaccine.df %>%
 ```{r}
 plot(model_limited)
 ```
+
+
 ```{r}
 bptest(model_limited)
 
@@ -276,6 +286,22 @@ In your text, comment on both statistical significance and practical significanc
 
 ### f-tests to determine the benefit of added covariates
 
+
+```{r f-test}
+
+anova(model_2, lm(formula = log10(Number.of.Long.Trips) ~ Series_Complete_Pop_Pct + log10(County.POP) + log10(County_Median_Income) + MEDIAN_AGE_TOT, data = trips.vs.vaccine.df), test = "F")
+
+
+# anova(model_2, lm(formula = log10(Number.of.Long.Trips) ~ Series_Complete_Pop_Pct + log10(County.POP) + log10(County_Median_Income) + log10(unemployment_pct_2020), data = trips.vs.vaccine.df), test = "F")
+
+
+
+# anova(model_2, model_3, test = "F")
+
+```
+
+
+
 ### Statistical Significance
 
 ### Practical Significance
@@ -313,6 +339,9 @@ plot_model_1b <- trips.vs.vaccine.df %>%
 ```{r}
 plot(model_2,which=1)
 ```
+
+
+
 ```{r}
 # model 2
 
@@ -342,6 +371,8 @@ plot_model_2d <- trips.vs.vaccine.df %>%
 ```{r}
 plot(model_3,which=1)
 ```
+
+
 
 ```{r}
 # model 3
@@ -381,6 +412,10 @@ plot_model_3g <- trips.vs.vaccine.df %>%
 
 ### CLM Assumption 3: No Perfect Multicollinearity
 
+Since we did not get NA's or variables dropped in our regression table, 
+*perfect* multicollinearity does not exist in our model. We check for near perfect multicollinearity through VIF tests of our model. If a variable's VIF is over 4, then that variable is collinear with atleast another and should be considered for dropping. 
+
+
 ```{r}
 car::vif(model_2)
 
@@ -405,6 +440,13 @@ plot(model_3,which=3)
 ```
 
 
+```{r}
+bptest(model_2)
+bptest(model_3)
+
+```
+
+We should use robust standard errors b/c we do not have homoskedasticity.
 
 ### CLM Assumption 5: Normally Distributed Errors
 
