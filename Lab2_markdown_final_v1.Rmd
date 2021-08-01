@@ -1,6 +1,6 @@
 ---
-title: "Lab2_markdown_anand"
-author: "Anand Patel"
+title: "Lab2: Vaccination Rate and Tourism on the U.S. Continental West Coast"
+author: "Anand Patel, Vijay Ranganatha, Viswanathan Thiagarajan"
 date: "7/26/2021"
 output:
   html_document:
