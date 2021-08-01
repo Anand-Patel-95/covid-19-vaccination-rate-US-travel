@@ -16,6 +16,7 @@ library(sandwich)
 library(lmtest)
 library(stargazer)
 library(car)
+library(GGally)
 
 
 ```
@@ -32,7 +33,9 @@ setwd("/home/rstudio/w203/lab-2-section8-team5-lab2-avv/src/data")
 trips.vs.vaccine.df <- read.csv('final_data_v1.csv', header = TRUE, stringsAsFactors = FALSE)
 
 trips.vs.vaccine.df$X <- NULL
+trips.vs.vaccine.df$isRepublican = as.factor(trips.vs.vaccine.df$isRepublican)
 ```
+
 
 
 ```{r include=FALSE}
@@ -139,6 +142,8 @@ inspect_cor(data_unlabeled) %>% show_plot(col_palette = 5)
 
 
 
+The correlation matrix shows very high positive correlation between `Income County Median Income vs State Median Income`, representing what percentage of the state's median income the county median income has, and `County Median Income`. We will only use county median income to represent wealth as a control for our analysis. 
+
 
 ```{r}
 # 1) untransformed data
@@ -151,6 +156,71 @@ pairs(~log10(Number.of.Long.Trips) + Series_Complete_Pop_Pct + County.POP + Coun
 pairs(~log10(Number.of.Long.Trips) + Series_Complete_Pop_Pct + log10(County.POP) + log10(County_Median_Income) + isRepublican + log10(unemployment_pct_2020) + MEDIAN_AGE_TOT, data = trips.vs.vaccine.df)
 ```
 
+### GGPair plots to transform our variables to be more normal.
+
+First we create a dataframe with our predictors and outcome variable untransformed. We use a GGPairs to look at the correlation between variables, the distributions of the variables along the plot diagonal, and scatterplots of each variable pair.
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+
+# create df for just the outcome variable and predictors.
+d <- trips.vs.vaccine.df[, c(2, 5, 7, 8, 11, 12, 16)]
+
+```
+
+
+
+```{r message=FALSE, warning=FALSE}
+# Plot untransformed ggpairs
+
+pm <- ggpairs(d, 1:7,
+    title = "Untransformed: GGPairs plots for Outcome and Features"
+)
+pm
+
+```
+
+
+In the plot above, we see that several variables have non-normal distributions. The following variable's distributions look right skewed: `Number.of.Long.Trips`, `Series_Complete_Pop_Pct` (slightly), `County.POP`, `County_Median_Income`, `unemployment_pct_2020`, `unemployment_pct_2020` (slightly). For right-skewed distributions, we can transform our variables down the Box-Cox Ladder of Powers. We try transforming our right-skewed variables using a log10 transform, and plotting the GGPairs again to see if we have more normally distributed variables now.
+
+```{r include=FALSE}
+# create transformed dataframe
+d_tf <- d
+
+# log10
+d_tf$Number.of.Long.Trips = log10(d_tf$Number.of.Long.Trips)
+
+# log10
+d_tf$Series_Complete_Pop_Pct = log10(d_tf$Series_Complete_Pop_Pct)
+
+# log10
+d_tf$County.POP = log10(d_tf$County.POP)
+
+# log10
+d_tf$County_Median_Income = log10(d_tf$County_Median_Income)
+
+# log10
+d_tf$unemployment_pct_2020 = log10(d_tf$unemployment_pct_2020)
+
+# log10
+d_tf$MEDIAN_AGE_TOT = log10(d_tf$MEDIAN_AGE_TOT)
+
+
+```
+
+
+
+```{r message=FALSE, warning=FALSE}
+# Plot untransformed ggpairs
+
+pm2 <- ggpairs(d_tf, 1:7,
+    title = "Untransformed: GGPairs plots for Outcome and Features"
+)
+pm2
+
+```
+
+
+All of the variables' distributions look much more normal now. The `County_Median_Income` still looks a bit right-skewed. We could go one step further down on the box-cox ladder of powers to transform this feature using a reciprocal root, but that comes at the cost of interpreting the coefficient for `County_Median_Income`. We will choose to log base 10 transform all the variables.
 
 ## Create models
 
@@ -168,10 +238,79 @@ model_3 = lm(formula = log10(Number.of.Long.Trips) ~ Series_Complete_Pop_Pct + l
 
 ```
 
-#### Run ANOVA f-tests to see if extra predictors explain more variance
+
+Using our log10 transformed data, we create a limited model, a second model with selective controls, and a third model with all our covariates.
+
+```{r include=FALSE}
+d_log10 = d_tf
+
+d_log10 = rename(d_log10, Number.of.Long.Trips_log10 = Number.of.Long.Trips, Series.Complete.Pop.Pct_log10 = Series_Complete_Pop_Pct, County.POP_log10 = County.POP, County.Median.Income_log10 = County_Median_Income, Unemployment.Pct_log10 = unemployment_pct_2020, Median.Age_log10 = MEDIAN_AGE_TOT)
+
+```
+
+
+
+### Make Models
+
+```{r}
+
+model_limited = lm(formula = Number.of.Long.Trips_log10 ~ Series.Complete.Pop.Pct_log10, data = d_log10)
+
+model_2 = lm(formula = Number.of.Long.Trips_log10 ~ Series.Complete.Pop.Pct_log10 + County.POP_log10 + County.Median.Income_log10, data = d_log10)
+
+model_3 = lm(formula = Number.of.Long.Trips_log10 ~ Series.Complete.Pop.Pct_log10 + County.POP_log10 + County.Median.Income_log10 + isRepublican + Unemployment.Pct_log10 + Median.Age_log10, data = d_log10)
+
+```
+
+
+#### Run Akaike information criterion (AIC)
+
+Run the Akaike Information Criterion (AIC) to see which models fit the given data the most.
+
+```{r}
+step(model_limited, list(upper = model_3), direction = "forward")
+```
+
+
+The AIC tests show that the model with the lowest AIC score, which fits the model the best, is actually the model that only excludes the unemployment percentage variable. We can update our 2nd model to this model.
+
+```{r}
+
+model_limited = lm(formula = Number.of.Long.Trips_log10 ~ Series.Complete.Pop.Pct_log10, data = d_log10)
+
+model_2 = lm(formula = Number.of.Long.Trips_log10 ~ Series.Complete.Pop.Pct_log10 + County.POP_log10 + Median.Age_log10 + isRepublican + County.Median.Income_log10, data = d_log10)
+
+model_3 = lm(formula = Number.of.Long.Trips_log10 ~ Series.Complete.Pop.Pct_log10 + County.POP_log10 + County.Median.Income_log10 + isRepublican + Unemployment.Pct_log10 + Median.Age_log10, data = d_log10)
+
+```
+
+
 
 
 ```{r}
+# add residuals 
+d_log10 <- d_log10 %>%  
+  mutate(model_limited_residuals = resid(model_limited)) # model predict - actual
+
+d_log10 <- d_log10 %>% 
+  mutate(model_limited_prediction = predict(model_limited))
+
+d_log10 <- d_log10 %>%  
+  mutate(model_2_residuals = resid(model_2)) # model predict - actual
+
+d_log10 <- d_log10 %>% 
+  mutate(model_2_prediction = predict(model_2))
+
+d_log10 <- d_log10 %>%  
+  mutate(model_3_residuals = resid(model_3)) # model predict - actual
+
+d_log10 <- d_log10 %>% 
+  mutate(model_3_prediction = predict(model_3))
+```
+
+
+
+```{r eval=FALSE, include=FALSE}
 # add residuals 
 trips.vs.vaccine.df <- trips.vs.vaccine.df %>%  
   mutate(model_limited_residuals = resid(model_limited)) # model predict - actual
@@ -191,6 +330,9 @@ trips.vs.vaccine.df <- trips.vs.vaccine.df %>%
 trips.vs.vaccine.df <- trips.vs.vaccine.df %>% 
   mutate(model_3_prediction = predict(model_3))
 ```
+
+
+#### Plotting models
 
 
 
@@ -289,7 +431,7 @@ In your text, comment on both statistical significance and practical significanc
 
 ```{r f-test}
 
-anova(model_2, lm(formula = log10(Number.of.Long.Trips) ~ Series_Complete_Pop_Pct + log10(County.POP) + log10(County_Median_Income) + MEDIAN_AGE_TOT, data = trips.vs.vaccine.df), test = "F")
+anova(model_2, model_3, data = d_log10, test = "F")
 
 
 # anova(model_2, lm(formula = log10(Number.of.Long.Trips) ~ Series_Complete_Pop_Pct + log10(County.POP) + log10(County_Median_Income) + log10(unemployment_pct_2020), data = trips.vs.vaccine.df), test = "F")
@@ -321,12 +463,12 @@ plot(model_limited,which=1)
 ```{r}
 # model 1
 
-plot_model_1a <- trips.vs.vaccine.df %>%  
-  ggplot(aes(x = Series_Complete_Pop_Pct, y = log10(Number.of.Long.Trips))) + 
+plot_model_1a <- d_log10 %>%  
+  ggplot(aes(x = Series.Complete.Pop.Pct_log10, y = Number.of.Long.Trips_log10)) + 
   geom_point() + stat_smooth()
 
-plot_model_1b <- trips.vs.vaccine.df %>%  
-  ggplot(aes(x = Series_Complete_Pop_Pct, y = model_limited_residuals)) + 
+plot_model_1b <- d_log10 %>%  
+  ggplot(aes(x = Series.Complete.Pop.Pct_log10, y = model_limited_residuals)) + 
   geom_point() + stat_smooth()
 
 (plot_model_1a / plot_model_1b)
@@ -342,22 +484,22 @@ plot(model_2,which=1)
 
 
 
-```{r}
+```{r message=FALSE}
 # model 2
 
-plot_model_2a <- trips.vs.vaccine.df %>%  
-  ggplot(aes(x = Series_Complete_Pop_Pct, y = model_2_residuals)) + 
+plot_model_2a <- d_log10 %>%  
+  ggplot(aes(x = Series.Complete.Pop.Pct_log10, y = model_2_residuals)) + 
   geom_point() + stat_smooth()
 
-plot_model_2b <- trips.vs.vaccine.df %>% 
-  ggplot(aes(x = log10(County.POP), y = model_2_residuals)) + 
+plot_model_2b <- d_log10 %>% 
+  ggplot(aes(x = County.POP_log10, y = model_2_residuals)) + 
   geom_point() + stat_smooth()
 
-plot_model_2c <- trips.vs.vaccine.df %>% 
-  ggplot(aes(x = log10(County_Median_Income), y = model_2_residuals)) + 
+plot_model_2c <- d_log10 %>% 
+  ggplot(aes(x = County.Median.Income_log10, y = model_2_residuals)) + 
   geom_point() + stat_smooth()
 
-plot_model_2d <- trips.vs.vaccine.df %>%  
+plot_model_2d <- d_log10 %>%  
   ggplot(aes(x = model_2_prediction, y = model_2_residuals)) + 
   geom_point() + stat_smooth()
 
@@ -374,34 +516,34 @@ plot(model_3,which=1)
 
 
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 # model 3
 
-plot_model_3a <- trips.vs.vaccine.df %>%  
-  ggplot(aes(x = Series_Complete_Pop_Pct, y = model_3_residuals)) + 
+plot_model_3a <- d_log10 %>%  
+  ggplot(aes(x = Series.Complete.Pop.Pct_log10, y = model_3_residuals)) + 
   geom_point() + stat_smooth()
 
-plot_model_3b <- trips.vs.vaccine.df %>% 
-  ggplot(aes(x = log10(County.POP), y = model_3_residuals)) + 
+plot_model_3b <- d_log10 %>% 
+  ggplot(aes(x = County.POP_log10, y = model_3_residuals)) + 
   geom_point() + stat_smooth()
 
-plot_model_3c <- trips.vs.vaccine.df %>% 
-  ggplot(aes(x = log10(County_Median_Income), y = model_3_residuals)) + 
+plot_model_3c <- d_log10 %>% 
+  ggplot(aes(x = County.Median.Income_log10, y = model_3_residuals)) + 
   geom_point() + stat_smooth()
 
-plot_model_3d <- trips.vs.vaccine.df %>% 
-  ggplot(aes(x = isRepublican, y = model_3_residuals)) + 
+plot_model_3d <- d_log10 %>% 
+  ggplot(aes(x = as.numeric(isRepublican), y = model_3_residuals)) + 
   geom_point() + stat_smooth()
 
-plot_model_3e <- trips.vs.vaccine.df %>% 
-  ggplot(aes(x = log10(unemployment_pct_2020), y = model_3_residuals)) + 
+plot_model_3e <- d_log10 %>% 
+  ggplot(aes(x = Unemployment.Pct_log10, y = model_3_residuals)) + 
   geom_point() + stat_smooth()
 
-plot_model_3f <- trips.vs.vaccine.df %>% 
-  ggplot(aes(x = MEDIAN_AGE_TOT, y = model_3_residuals)) + 
+plot_model_3f <- d_log10 %>% 
+  ggplot(aes(x = Median.Age_log10, y = model_3_residuals)) + 
   geom_point() + stat_smooth()
 
-plot_model_3g <- trips.vs.vaccine.df %>%  
+plot_model_3g <- d_log10 %>%  
   ggplot(aes(x = model_3_prediction, y = model_3_residuals)) + 
   geom_point() + stat_smooth()
 
