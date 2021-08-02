@@ -3,9 +3,9 @@ title: "Lab2_markdown_anand"
 author: "Anand Patel"
 date: "7/26/2021"
 output:
+  pdf_document: default
   html_document:
     df_print: paged
-  pdf_document: default
 ---
 
 
@@ -81,8 +81,8 @@ Our treatment variable is county vaccination rate, measured as the percentage of
 
 County population would directly impact the number of trips taken since more individuals means more people who can potentially take tourism trips. County population also increases for urban counties versus rural counties, so this variable could also represent urban vs rural in our study which can capture the difference in Covid impact on these environments. Our control for county population can be operationalized by calculating the 2021 county population estimate used in the CDC Vaccine Rate dataset using the columns available.
 
-
 $$\text{pop_est} = 100*\frac{\text{tot_num_vaccinated}}{\text{vaccination_rate}}$$
+
 
 
 
