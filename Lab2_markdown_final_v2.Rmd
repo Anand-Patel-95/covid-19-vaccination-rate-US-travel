@@ -1,6 +1,6 @@
 ---
 title: "The affect of Vaccinations on Long Distance Trip"
-author: "Anand Patel, Viswanatha Thiagarajan, Vijay Ranganatha"
+author: "Anand Patel, Viswanathan Thiagarajan, Vijay Ranganatha"
 date: "7/26/2021"
 output:
   html_document:
@@ -35,9 +35,11 @@ library(kableExtra)
 
 ```{r message=FALSE, include=FALSE}
 #Set the Working Directory-Vijay
-setwd("/home/jovyan/W203/Lab2/V1.2/lab-2-section8-team5-lab2-avv/src/data")
+#setwd("/home/jovyan/W203/Lab2/V1.2/lab-2-section8-team5-lab2-avv/src/data")
 # on anand's computer:
 #setwd("/home/rstudio/w203/lab-2-section8-team5-lab2-avv/src/data")
+#Set the Working Directory-Vis
+#setwd("~/R Scripts/W203/Lab 2")
 
 # Loading the dataframe from the output of DataWrangling
 trips.vs.vaccine.df <- read.csv('final_data_v1.csv', header = TRUE, stringsAsFactors = FALSE)
@@ -82,9 +84,7 @@ Our treatment variable is county vaccination rate, measured as the percentage of
 
 County population would directly impact the number of trips taken since more individuals means more people who can potentially take tourism trips. County population also increases for urban counties versus rural counties, so this variable could also represent urban vs rural in our study which can capture the difference in Covid impact on these environments. Our control for county population can be operationalized by calculating the 2021 county population estimate used in the CDC Vaccine Rate dataset using the columns available.
 
-$$
-\text{pop_est} = 100*\frac{\text{tot_num_vaccinated}}{\text{vaccination_rate}}
-$$
+$$\text{pop_est} = 100*\frac{\text{tot_num_vaccinated}}{\text{vaccination_rate}}$$
 
 
 County resident age can influence how many trips are taken since 65+ individuals might not have a long distance travel oriented lifestyle and tourism trips would likely be low for counties where older residents live. We operationalize county resident age using the county level median age [dataset available from 2020 U.S. Census population estimates](https://www.census.gov/programs-surveys/popest/technical-documentation/research/evaluation-estimates/2020-evaluation-estimates/2010s-county-detail.html).
@@ -107,7 +107,7 @@ As part of the Research, we are interested in understanding if increasing vaccin
 
 ### Variables of Interest
 
-```{r conduct EDA in this chunk, echo=FALSE, message=FALSE, warning=FALSE}
+```{r conduct EDA in this chunk, echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Untransformed Variables"}
 # untransformed Number.of.Long.Trips vs Series_Complete_Pop_Pct
 d_scatter_1 <- trips.vs.vaccine.df %>% 
   ggplot() + 
@@ -138,7 +138,7 @@ d_hist_1 | d_scatter_1
 
 Checking the Long Trips in the histogram shows us that the plot is not normal and the data is very much isolated towards the left. Also, the scatter plot of Vaccination percentage and Number of Long Trips, shows us that the data is very much dispersed for Long Trips. Hence, there appears to be a need to apply transformation to make them normal.
 
-```{r EDA after transforming, echo=FALSE}
+```{r EDA after transforming, echo=FALSE, message=FALSE, fig.cap="Transformed Variables"}
 # log transformed on Number.of.Long.Trips.
 d_scatter_2 <- trips.vs.vaccine.df %>% 
   ggplot() + 
@@ -146,7 +146,7 @@ d_scatter_2 <- trips.vs.vaccine.df %>%
   geom_smooth(method='lm', se=FALSE, alpha=0.8) +
   geom_point(alpha = 0.1) +
   labs(
-    title    = 'Transformed Number of Long Trips Taken vs. Vaccination %',
+    title    = 'Transformed LongTrips & Vaccination%',
     x        = 'Vaccination %',
     y        = 'Number of Long Trips Taken log(10)', 
     fill     = ''
@@ -157,7 +157,7 @@ d_hist_2 <- trips.vs.vaccine.df %>%
   ggplot(aes(x= log10(Number.of.Long.Trips)) ) + 
   geom_histogram(bins=50) +
   labs(
-    title    = 'Transformed Frequency of Long Trips',
+    title    = 'Transformed Frequency of LongTrips',
     x        = 'Long Trips (log10)',
     y        = 'count', 
     col      = 'orange'
@@ -173,7 +173,7 @@ As can be noticed after the log10 transformation, the data of Dependent Variable
 To understand the correlation between the variables that we are interested to analyze, lets take a look into their relationship.
 The following plot provides the correlation of the different variables:
 
-```{r correlation plot, echo=FALSE, message=FALSE, warning=FALSE}
+```{r correlation plot, echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Columns Correlation"}
 
 # Creating a dataframe with only the required columns
 data_unlabeled <- trips.vs.vaccine.df %>% 
@@ -208,7 +208,7 @@ pairs(~log10(Number.of.Long.Trips) + log10(Series_Complete_Pop_Pct) + log10(Coun
 ```
 
 
-```{r Checking few data elements, echo=FALSE, message=FALSE, warning=FALSE}
+```{r Checking few data elements, echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Untransformed Pairs Plot"}
 df_check <- trips.vs.vaccine.df[, c(2, 5, 7, 8, 11, 12, 16)]
 #head(df_check)
 colnames(df_check) <- make.names(c('Long Trips Count', 
@@ -250,7 +250,7 @@ For right-skewed distributions, we can transform our variables down the Box-Cox 
 We will now transform the variables which did not have a normal distribution from the previous observation.
 We use a GGPairs to look at the correlation between variables, the distributions of the variables along the plot diagonal, and scatterplots of each variable pair.
 
-```{r Transformed ggpairs plot, echo=FALSE, message=FALSE, warning=FALSE}
+```{r Transformed ggpairs plot, echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Transformed Pairs Plot"}
 
 # create df for just the outcome variable and predictors.
 d <- trips.vs.vaccine.df[, c(2, 5, 7, 8, 11, 12, 16)]
@@ -459,7 +459,7 @@ pf(mod_summary$fstatistic[1],              # Applying pf() function
 
 **Regression Table using Robust Standard Errors:**
 
-```{r message=FALSE, warning=FALSE}
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 stargazer(
    model_limited, model_2, model_3,
    type = 'text',
@@ -505,11 +505,17 @@ d_log10 <- d_log10 %>%
   mutate(model_3_prediction = predict(model_3))
 ```
 
-### CLM Assumption 1: IID
+Below we will discuss and check whether our two models (not including the limited model) satisfy the Classical Liner Model assumptions.
 
+### CLM Assumption 1: Independent and Identically Distributed (IID)
+
+The observations in our models are limited to all the counties in the continental west coast states of California, Oregon, and Washington. Most of the west coast region counties share similar social, cultural, political, economic, and geographical features. This similarity of features means that the counties in this region are mostly identical except for some deviations like population, median income level, and counties’ political leaning (Democrat or a Republican party). Population, median income level, and political leaning can influence the number of long-distance trips taken in a county, in addition to the percentage of vaccinated people. To control the differences due to these additional features, we include population, median income level, and 2020 county-level presidential results (party with the highest percentage of votes) as covariates in our model and assume that the observations are identical. We also acknowledge that some neighboring counties or clusters of counties in this region can influence or cause some dependency between the observations. Hence, the assumption of independence is not met in the sample. Based on the deficiencies in the IID assumption, we need to be wary of interpreting the model results and understand that the actual results may vary more than what the model suggests, i.e., the standard errors in the model are likely lower than actual uncertainty.
 
 
 ### CLM Assumption 2: Linear Conditional Expectation
+
+We validate the linear conditional expectation assumption for our models 2 and 3 by a visual inspection of the plot between the model residuals on the y-axis and the model predicted values on the x-axis. The plots show that the residuals line for both the models 2 and 3 are very close to 0 and only reaching 0.1 at the tails. 
+
 
 ```{r eval=FALSE, include=FALSE}
 plot(model_limited,which=1)
@@ -532,15 +538,31 @@ plot_model_1b <- d_log10 %>%
 ```
 
 
+```{r Model Residuals and Predictions, echo=FALSE, message=FALSE, warning=FALSE, fig.cap="Model Residuals and Predictions"}
+# model 2 and 3
+
+plot_model_21 <- d_log10 %>%
+ggplot(aes(x = model_2_prediction, y = model_2_residuals)) +
+geom_point() + stat_smooth() +
+labs( x = "Model 2 Predictions", y = "Model 2 Residuals")
 
 
-```{r}
+plot_model_31 <- d_log10 %>%
+ggplot(aes(x = model_3_prediction, y = model_3_residuals)) +
+geom_point() + stat_smooth() +
+labs( x = "Model 3 Predictions", y = "Model 3 Residuals")
+
+
+(plot_model_21 / plot_model_31)
+
+```
+
+```{r eval=FALSE, include=FALSE}
 plot(model_2,which=1)
 ```
 
 
-
-```{r message=FALSE}
+```{r eval=FALSE, message=FALSE, include=FALSE}
 # model 2
 
 plot_model_2a <- d_log10 %>%  
@@ -565,14 +587,45 @@ plot_model_2d <- d_log10 %>%
 
 
 
-
-```{r}
+```{r eval=FALSE, include=FALSE}
 plot(model_3,which=1)
+```
+
+While the models look good in meeting the linear conditional expectation assumption, we check if there are any issues with some of the key covariates included in our model 3 by plotting the model residuals on the y-axis with the covariates on the x-axis. The covariates selected for these plots with the model 3 residuals are the log10 values of the following variables: percentage of population vaccinated in each county, the total population of the county, median age of county residents, and the median income of the county residents. All the plots between the model residuals and the covariates look good and the residual lines are closer to 0 in each of the plots and do not cross 0.2. There seems to be no issues with the covariates included in the model. The linear conditional expectation is met for both models 2 and 3.
+
+```{r Model Residuals and Variables, echo=FALSE, message=FALSE, fig.cap="Model Residuals and Variables"}
+vac_resid <- d_log10 %>%
+ggplot(aes(x = Series.Complete.Pop.Pct_log10, y = model_3_residuals)) +
+geom_point() + stat_smooth() +
+labs (x = "Log 10 of Percentact Vaccinated", y = "Model 3 Residuals")
+
+
+pop_resid <- d_log10 %>%
+ggplot(aes(x = County.POP_log10, y = model_3_residuals)) +
+geom_point() + stat_smooth() +
+labs (x = "Log 10 of County Population", y = "Model 3 Residuals")
+
+
+age_resid <- d_log10 %>%
+ggplot(aes(x = Median.Age_log10, y = model_3_residuals)) +
+geom_point() + stat_smooth() +
+labs (x = "Log 10 of Median Age", y = "Model 3 Residuals")
+
+
+inc_resid <- d_log10 %>%
+ggplot(aes(x = County.Median.Income_log10, y = model_3_residuals)) +
+geom_point() + stat_smooth() +
+labs (x = "Log 10 of Median Income", y = "Model 3 Residuals")
+
+
+(vac_resid / pop_resid) 
+(age_resid / inc_resid )
+
 ```
 
 
 
-```{r message=FALSE, warning=FALSE}
+```{r eval=FALSE, message=FALSE, warning=FALSE, include=FALSE}
 # model 3
 
 plot_model_3a <- d_log10 %>%  
@@ -604,40 +657,39 @@ plot_model_3f <- d_log10 %>%
 ```
 
 
-### CLM Assumption 3: No Perfect Multicollinearity
+### CLM Assumption 3: No perfect collinearity
 
-Since we did not get NA's or variables dropped in our regression table, 
-*perfect* multicollinearity does not exist in our model. We check for near perfect multicollinearity through VIF tests of our model. If a variable's VIF is over 4, then that variable is collinear with atleast another and should be considered for dropping. 
+If one of the covariates can be written as a linear combination of another covariate, it is not possible to solve for the OLS estimator. In such cases we say that there is perfect multicollinearity. We can check for multicollinearity in two different ways 1) By using the Variance Inflation Factor (VIF) of the regression coefficients in the model 2) Calculating the paired correlation values of the covariates in the model. 
 
+We checked the VIF of both models 2 and 3. Below are the results
+ 
 
-```{r}
-car::vif(model_2)
+```{r VIF, echo=FALSE}
+message('Model 2 VIF\n')
+vif(model_2)
+
+message('\nModel 3 VIF\n')
+vif(model_3)
+
+```
+
+Usually, when VIF of the regression coefficients is less than 4 we say there is no perfect collinearity. We can see that the VIF of the regression coefficients is less than 4 in both model 2 and 3. The assumption of no perfect collinearity is met for both the models.
+
+### CLM Assumption 4: Homoskedastic Errors
+
+In the CLM model, we assume that the errors are homoskedastic. This means that the errors terms do not vary much based on the predicted values in the model. We can evaluate homoskedastic assumption by viewing the plot between the standardized residuals and the fitted values or by performing a Breusch–Pagan test on the model. If the errors are homoscedastic, the line in the standardized residuals vs. the fitted values plot will be horizontal. We can see that for both our models 2 and 3, the line is not horizontal and there is a slope to it. There seems to be larger variation associated with the error terms based on different predicted values. This observation can be confirmed by the results of the Breusch–Pagan test on both the models which produce a p-value less than 0.05 that is statistically significant. Based on the p-values, the null hypothesis that the error variances are equal is rejected. Models 2 and 3 do not meet the assumption of homoscedastic errors. We should understand that the estimated errors in these models may not reflect the true uncertainty. Hence, any conclusion arrived at based on the errors and the hypothesis tests on these models may not be reliable.
+
+```{r Standardized Residuals and Fitted Values, echo=FALSE, fig.cap="Standardized Residuals and Fitted Values"}
+# Ocular Method Checking for Homoskedastic Errors
+
+plot(model_2, which=3, main = "Model 2") 
+plot(model_3, which=3, main = "Model 3")
 
 ```
 
 
-```{r}
-car::vif(model_3)
+```{r BP Test, echo=FALSE}
 
-```
-
-Neither model 2 nor model 3 have any VIFs exceeding 4, so no variables in either of these models are near perfectly multicollinear. We meet this CLM assumption for model 2 and model 3.
-
-### CLM Assumption 4: Homoskedastic Conditional Variance
-
-
-```{r}
-# model 1: Ocular Method Checking for Homoskedastic Conditional Variance
-plot(model_2,which=3)
-
-# model 2: Ocular Method Checking for Homoskedastic Conditional Variance
-plot(model_3,which=3)
-
-
-```
-
-
-```{r}
 # Model 2: Breusch-Pagan test against heteroskedasticity.
 bptest(model_2)
 
@@ -650,46 +702,52 @@ The Breusch-Pagan test rejects the null hypothesis for homoskedastic conditional
 
 ### CLM Assumption 5: Normally Distributed Errors
 
-```{r}
-# Ocular Method: QQNorm plots:
+Normality of errors is another key assumption of the classical liner model. We can verify the normal distribution assumption by viewing the histogram of the model residuals or by viewing a Q-Q norm plot between the theoretical values and the standardized residuals. The histogram of the residuals of both models look almost normal. The Q-Q norm plot confirms that the actuals and the expectations fall along the same line for a major portion except for the ends in both the models. The plots are not too bad as the central portion is looking good. Usually, Q-Q norm plots tend to curve at the tails due to lack of data. We can confirm that our models 2 and 3 meet the assumption of normally distributed errors.
 
-# car::qqPlot(model_limited)
-car::qqPlot(model_2)
-car::qqPlot(model_3)
-```
-
-
-
-```{r}
+```{r Residuals Histogram, echo=FALSE, fig.cap="Residuals Histogram", fig.width=5, fig.height=3}
 # Ocular Method: Histograms of Residuals:
 
-# hist(model_limited$residuals)
-hist(model_2$residuals)
-hist(model_3$residuals)
+hist(model_2$residuals, main = "Model 2", xlab = "Model 2 Residuals")
+hist(model_3$residuals, main = "Model 3", xlab = "Model 3 Residuals")
+
+
 ```
 
 
 
-```{r}
+```{r Q-Q Plots, echo=FALSE, fig.cap="Q-Q Norm plots",, fig.width=5, fig.height=3}
+# Ocular Method: QQNorm plots:
+plot(model_2,which=2, xlab = "Model 2 Theoritical Quantities") 
+plot(model_3,which=2, xlab = "Model 3 Theoritical Quantities") 
+```
+
+
+
+```{r Shapiro Wilks Test, echo=FALSE}
 # Shapiro-Wilk’s test for normality:
 
 # For Model 2
+
 shapiro.test(d_log10$model_2_residuals)
 
 # For Model 3
 shapiro.test(d_log10$model_3_residuals)
 ```
 
-Running the Shapiro-Wilk normality test on the residuals of model 2 and model 3 both result in a p-value exceeding 0.05. This means we fail to reject the null hypothesis of normally distributed residuals. We can assume that Model 2 and Model 3 have normally distributed residuals.
+The Shapiro-Wilk normality test on the residuals of model 2 and model 3 both result in a p-value exceeding 0.05. This means that we fail to reject the null hypothesis of normally distributed residuals. Our assumption that Model 2 and Model 3 have normally distributed residuals is met.
 
 > Note that you may need to change your model specifications in response to violations of the CLM.
 
 ## 5. Discussion of Omitted Variables
 > If the team has taken up an explanatory (i.e. causal) question to evaluate, then identify what you think are the most important omitted variables that bias results you care about. For each variable you name, you should reason about the direction of bias caused by omitting this variable. If you can argue whether the bias is large or small, that is even better. State whether you have any variables available that may proxy (even imperfectly) for the omitted variable. Pay particular attention to whether each omitted variable bias is towards zero or away from zero. You will use this information to judge whether the effects you find are likely to be real, or whether they might be entirely an artifact of omitted variable bias.
 
+Our model tries to find the causal relationship between the number of long trips undertaken by the residents of the counties in the continental west coast states and the percentage of fully vaccinated people in these counties. While we try to improve our model’s fit by including a number of applicable covariates that affect the predictor variable, we also acknowledge that there may be some omitted variables (OV) that we should be aware of. In this section we talk about the omitted variables and their potential impact on the models.
 
+1.	OV - Policy of lifting mask ban: We tried to gather the policy data, but unable to find the details at the county level. Hence, we discuss its potential impact of this omitted variable on our model, if such a data was available. Based on the model coefficients calculated, we see that the number of long trips has a negative relationship with the vaccination rate. We anticipate that higher vaccination percentages would more likely lead to lifting a mask ban which is a positive relationship. Lifting a mask ban would could boost the confidence of the county residents that the pandemic is under control and that might have a positive relationship with the number of long trips. With these relationships the estimated coefficient of vaccination percentage is greater than the true coefficient and the direction of bias is towards 0.
 
+2.	OV – COVID Fatigue: COVID fatigue measures how tired people are of being in a lockdown after a lockdown is lifted. There is no data available on COVID fatigue. Hence, we discuss its potential impact of this omitted variable on our model, if such a data was available. We discussed above that the number of long trips has a negative relationship with the vaccination rate. We anticipate that more fatigue people have the more likely they will travel which is a positive relationship. COVID fatigue can have a positive relationship with the vaccination rates as people want to carry on with their daily lives worry free. With these relationships the estimated coefficient of vaccination percentage is greater than the true coefficient and the direction of bias is towards 0.
 
+3.	OV – Vaccine Hesitancy: This variable measure the percentage of people at the county level who describe themselves as “unsure”, “probably not”, or “definitely not” going to get a COVID-19 vaccine. There is no vaccine hesitancy data available at the county level. Hence, we discuss its potential impact of this omitted variable on our model, if such a data was available. We discussed above that the number of long trips has a negative relationship with the vaccination rate. Having a higher percentage of vaccine hesitancy or skepticism means that there may be a positive relationship with the number of trips, since these people may not believe in science. Getting more people vaccinated could reduce the vaccine hesitancy to some extent because it becomes normalized and trusted, so the relationship is negative. With these relationships the estimated coefficient of vaccination percentage is lesser than the true coefficient and the direction of bias away from 0.
 
 ## 6. Conclusion
 > Make sure that you end your report with a discussion that distills key insights from your estimates and addresses your research question.
