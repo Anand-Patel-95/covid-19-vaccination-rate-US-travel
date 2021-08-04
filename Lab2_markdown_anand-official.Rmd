@@ -1,0 +1,655 @@
+---
+title: "Lab2_markdown_anand"
+author: "Anand Patel"
+date: "7/26/2021"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+
+## 1. An Introduction
+> Your introduction should present a research question and explain the concept that you’re attempting to measure and how it will be operationalized. This section should pave the way for the body of the report, preparing the reader to understand why the models are constructed the way that they are. It is not enough to simply say “We are looking for policies that help against COVID” Your introduction must do work for you, focusing the reader on a specific measurement goal, making them care about it, and propelling the narrative forward. This is also good time to put your work into context, discuss cross-cutting issues, and assess the overall appropriateness of the data.
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(magrittr)
+library(ggplot2)
+library(patchwork)
+library(sandwich)
+library(lmtest)
+library(stargazer)
+library(car)
+library(GGally)
+
+
+```
+
+
+
+```{r message=FALSE, include=FALSE}
+# on anand's computer:
+setwd("/home/rstudio/w203/lab-2-section8-team5-lab2-avv/src/data")
+
+# column_classes <- c("character", "numeric", "character", "character", "numeric", "integer", "numeric", "integer", "numeric", "integer", "character")
+
+trips.vs.vaccine.df <- read.csv('final_data_v1.csv', header = TRUE, stringsAsFactors = FALSE)
+
+trips.vs.vaccine.df$X <- NULL
+trips.vs.vaccine.df$isRepublican = as.factor(trips.vs.vaccine.df$isRepublican)
+```
+
+
+
+```{r include=FALSE}
+get_robust_se <- function(model) { 
+    require(sandwich)
+    
+    sqrt(diag(sandwich::vcovHC(model)))
+  }
+```
+
+
+
+COVID-19 has had a devastating impact on the lives of many people. There were various policies which the government implemented to control the spread of the virus. Such policies as quarantine measures, lockdowns, and travel bans halted tourism travel. After a year-long struggle with the new norms and lockdowns imposed, there appears to be a change in the perception of Covid-19 as vaccines become available to people living in the United States. With vaccine rates increasing in the United States, mask mandates are lifting, people are venturing out to see friends and family, and advertisements are marketing products and activities as "returning" to the the pre-pandemic way of life. We must examine if the data supports this return in the context of tourism travel in the continental west coast states. 
+
+With summer of 2021 approaching, we would like to examine if increasing vaccination rates is leading people to taking tourism trips again. This research would benefit the **Tourism Board of Continental West Coast States** by informing this organization if places with high vaccination rate show an increased interest in tourism travel and subsequent demand for travel destinations. If the analysis supports that increasing vaccination rates among West Coast States leads to more tourism travel, likely to destinations along the Continental West Coast, then the **Tourism Board of Continental West Coast States** would know to increase staffing, reopening, lodging, and advertising efforts for travel destinations since the demand is increasing. If no such increase is shown, then the **Tourism Board of Continental West Coast States** would be informed to decrease or pause operational efforts, which can be expensive to sustain without customers, and maintain their destinations for a later time when people are ready to travel again.
+
+
+### Research Question
+
+We are presenting to the tourism board of Continental West Coast States (California, Oregon, Washington) and showing **if having a greater % of vaccinated people is leading to an increase in tourism as represented by more long distance trips, 50+ miles from home, taken.**
+
+### Operationalization 
+
+To perform the analysis, we are examining counties from the Continental West Coast States because residents of these counties are likely to do tourism travel to locations within these states and the vaccine drives here have been substantial. The number of counties in California, Oregon, and Washington total to 135. 
+
+#### Cross-section in Time
+
+For each county, we observe the percentage of people vaccinated by 1-May-2021 since this is close to the summer. To account for possible 2-week vaccination incubation for individuals who were vaccinated exactly on May 1st, we consider the daily tourism trips averaged across 05/14/2021 to 05/21/2021. For covariates, we will also evaluate if the county population, county resident age, if the county leans Republican, and wealth of residents play an important role in determining the number of trips taken as well.
+
+
+#### Variables
+
+Our outcome variable should measure the number of tourism trips taken. We operationalize a tourism trip as any trip taken that is far enough from home to signify an occasional trip. We consider tourism to be long distance travel away from home, since a long distance trip is likely to be a special or unique occasion. To analyze the impact of our treatment and controls on tourism, we will consider any trips greater than 50+ miles from home as tourism trips. The US Department of Transportation provides a [county level dataset on the number of trips taken by distance from home](https://data.bts.gov/Research-and-Statistics/Trips-by-Distance/w96p-f2qv). We sum up the columns for trips taken over 50 miles to get the number of long distance trips taken by county. 
+
+Our treatment variable is county vaccination rate, measured as the percentage of county population that is fully vaccinated with 2 doses or one dose from a single-dose vaccine. This data for county level vaccination rate is readily available by the Center for Disease Control as a [dataset](https://data.cdc.gov/Vaccinations/COVID-19-Vaccinations-in-the-United-States-County/8xkx-amqh). This dataset, for California, does not report vaccination rate for counties with population below 20,000. We lose 10 California counties as a result.
+
+County population would directly impact the number of trips taken since more individuals means more people who can potentially take tourism trips. County population also increases for urban counties versus rural counties, so this variable could also represent urban vs rural in our study which can capture the difference in Covid impact on these environments. Our control for county population can be operationalized by calculating the 2021 county population estimate used in the CDC Vaccine Rate dataset using the columns available.
+
+$$\text{pop_est} = 100*\frac{\text{tot_num_vaccinated}}{\text{vaccination_rate}}$$
+
+
+
+
+County resident age can influence how many trips are taken since 65+ individuals might not have a long distance travel oriented lifestyle and tourism trips would likely be low for counties where older residents live. We operationalize county resident age using the county level median age [dataset available from 2020 U.S. Census population estimates](https://www.census.gov/programs-surveys/popest/technical-documentation/research/evaluation-estimates/2020-evaluation-estimates/2010s-county-detail.html).
+
+
+Republican leaning states, like Florida, have shown a resistance to Covid prevention policies and a belief in science for Covid decision making. Republican leaning areas have been associated with neglecting Covid safety protocols due to residents being less concerned with precautionary measures. Adding a control for indicating if a West Coast county leans Republican would capture if people are taking tourism trips mainly based on their political beliefs and their associate attitude towards Covid-19. We might expect Republican leaning counties to have more tourism trips taken regardless of vaccination rate. We operationalize if a county is Republican leaning by determining if the county voted more for a Republican candidate in the 2020 presidential race over the Democratic candidate, computed from the [United States General Election Presidential Results](https://github.com/tonmcg/US_County_Level_Election_Results_08-20/blob/master/2020_US_County_Level_Presidential_Results.csv).
+
+
+We would expect that counties with more wealthy residents have more access to the money and means to travel. We operationalize the wealth of residents using the county level median household income made available in the [USDA's Economic Research Service dataset](https://data.ers.usda.gov/reports.aspx?ID=17828). This dataset also provides the county level unemployment percentage and percentage of State Median Household Income, which we evaluate as other potential controls but rule out in our analysis below.
+
+
+#### Our final dataset
+
+We download, clean, and combine the datasets using the following R Markdown file: `src/Lab2_Data_Wrangling.Rmd`. The final dataset is saved out at the completion of this `Lab2_Data_Wrangling.Rmd` and used for our analysis here.
+
+Our final dataset includes 125 counties, after cleaning out counties that are missing trips taken (Alpine County in California) and California counties whose vaccination rate was unreported due to the population being below 20,000 (as outlined in the data collection methodology of the CDC vaccination rate dataset). This may present a small issue since we are under representing small population West Coast counties in our analysis, but dropping only 10 counties from 135 maximum counties would still leave us with a sizeable dataset of 125 which does include a variety of county populations.
+
+## 2. A Model Building Process
+> You will next build a set of models to investigate your research question, documenting your decisions. Here are some things to keep in mind during your model building process:
+
+> What do you want to measure? Make sure you identify one, or a few, variables that will allow you to derive conclusions relevant to your research question, and include those variables in all model specifications. How are the variables that you will be modeling distributed? Provide enough context and information about your data for your audience to understand whatever model results you will eventually present.
+
+### Variables of Interest
+
+> Is your modeling goal one of description or **explanation**?
+
+> What covariates help you achieve your modeling goals? What covariates are problematic, either due to collinearity, or because they will absorb some of a causal effect you want to measure?
+
+
+
+
+```{r conduct EDA in this chunk, echo=FALSE, message=FALSE, warning=FALSE}
+
+
+# untransformed Number.of.Long.Trips vs Series_Complete_Pop_Pct
+d_scatter <- trips.vs.vaccine.df %>% 
+  ggplot() + 
+  aes(x = (Series_Complete_Pop_Pct), y= (Number.of.Long.Trips)) + 
+  geom_smooth(method='lm', se=FALSE, alpha=0.8) +
+  geom_point(alpha = 0.1) +
+  labs(
+    title    = 'Number of Long Trips Taken vs. Vaccination %',
+    x        = 'Vaccination %',
+    y        = 'Number of Long Trips Taken', 
+    fill     = ''
+  ) +
+  theme_light()
+
+d_scatter
+
+
+# log transformed on Number.of.Long.Trips.
+d_scatter <- trips.vs.vaccine.df %>% 
+  ggplot() + 
+  aes(x = (Series_Complete_Pop_Pct), y= log10(Number.of.Long.Trips)) + 
+  geom_smooth(method='lm', se=FALSE, alpha=0.8) +
+  geom_point(alpha = 0.1) +
+  labs(
+    title    = 'Number of Long Trips Taken vs. Vaccination %',
+    x        = 'Vaccination %',
+    y        = 'Number of Long Trips Taken log(10)', 
+    fill     = ''
+  ) +
+  theme_light()
+
+d_scatter
+
+```
+
+
+
+
+Correlation Matrix between terms of interest.
+
+```{r correlation plot, echo=FALSE, message=FALSE, warning=FALSE}
+
+# Just for our analysis, no need to include in report
+
+# install.packages("inspectdf")
+library(inspectdf)
+
+# Creating a dataframe with only the required columns
+data_unlabeled <- trips.vs.vaccine.df %>% 
+  select(Number.of.Long.Trips, 
+         Series_Complete_Pop_Pct,
+         County.POP,
+         County_Median_Income,
+         Income_CountyMedian_vs_StateMedian,
+         isRepublican,
+         unemployment_pct_2020,
+         MEDIAN_AGE_TOT
+  )
+
+inspect_cor(data_unlabeled) %>% show_plot(col_palette = 5)
+
+```
+
+
+The correlation matrix shows very high positive correlation between `Income County Median Income vs State Median Income`, representing what percentage of the state's median income the county median income has, and `County Median Income`. We will only use county median income to represent wealth as a control for our analysis. 
+
+
+```{r echo=FALSE}
+# 1) untransformed data
+pairs(~Number.of.Long.Trips + Series_Complete_Pop_Pct + County.POP + County_Median_Income + isRepublican + unemployment_pct_2020 + MEDIAN_AGE_TOT, data = trips.vs.vaccine.df, main = "Pair Plot: Untransformed Data")
+
+# 2) log10 transformed `Number.of.Long.Trips`
+pairs(~log10(Number.of.Long.Trips) + Series_Complete_Pop_Pct + County.POP + County_Median_Income + isRepublican + unemployment_pct_2020 + MEDIAN_AGE_TOT, data = trips.vs.vaccine.df, main = "Pair Plot: Log Transformed Output")
+
+# 3) log10 transformed all
+pairs(~log10(Number.of.Long.Trips) + log10(Series_Complete_Pop_Pct) + log10(County.POP) + log10(County_Median_Income) + isRepublican + log10(unemployment_pct_2020) + log10(MEDIAN_AGE_TOT), data = trips.vs.vaccine.df, main = "Pair Plot: Log Transformed All Variables")
+```
+
+
+
+#### Potential Covariates
+
+> What transformations, if any, should you apply to each variable? These transformations might reveal linearities in the data, make our results relevant, or help us meet model assumptions.
+
+#### Transformations
+
+> Are your choices supported by exploratory data analysis (EDA)? You will likely start with some general EDA to detect anomalies (missing values, top-coded variables, etc.). From then on, your EDA should be interspersed with your model building. Use visual tools to guide your decisions. You can also leverage statistical tests to help assess whether variables, or groups of variables, are improving model fit.
+
+> At the same time, it is important to remember that you are not trying to create one perfect model. You will create several specifications, giving the reader a sense of how robust (or sensitive) your results are to modeling choices, and to show that you’re not just cherry-picking the specification that leads to the largest effects.
+
+> At a minimum, you should include the following three specifications:
+
+> Limited Model: The first model you include should include only the key variables you want to measure. These variables might be transformed, as determined by your EDA, but the model should include the absolute minimum number of covariates (perhaps one, or at most two-three, covariates if they are so crucial that it would be unreasonable to omit them).
+
+> Model Two: One model that includes key explanatory variables and covariates that you believe advance your modeling goals without introducing too much multicollinearity or causing other issues of confounding. This model should strike a balance between accuracy and parsimony and reflect your best understanding of the relationships among key variables.
+
+> Model Three: One model that includes the previous covariates, and many other covariates, erring on the side of inclusion. A key purpose of this model is to evaluate how parameters of interest change (if at all) when additional, potentially colinear variables are included in the model specification.
+You goal with producing these models is to choose models that encircle the space of reasonable modeling choices, and to give an overall understanding of how these choices impact results.
+
+##### GGPair plots to transform our variables to be more normal.
+
+First we create a dataframe with our predictors and outcome variable untransformed. We use a GGPairs to look at the correlation between variables, the distributions of the variables along the plot diagonal, and scatterplots of each variable pair.
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+
+# create df for just the outcome variable and predictors.
+d <- trips.vs.vaccine.df[, c(2, 5, 7, 8, 11, 12, 16)]
+
+```
+
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+# Plot untransformed ggpairs
+
+pm <- ggpairs(d, 1:7,
+    title = "Untransformed: GGPairs plots for Outcome and Features",
+    axisLabels="none"
+)
+pm
+
+```
+
+
+In the plot above, we see that several variables have non-normal distributions (along the diagonal). The following variable's distributions look right or positively skewed: `Number.of.Long.Trips`, `Series_Complete_Pop_Pct` (slightly), `County.POP`, `County_Median_Income`, `unemployment_pct_2020`, `unemployment_pct_2020` (slightly). For right-skewed distributions, we can transform our variables down the Box-Cox Ladder of Powers. We try transforming all our right-skewed variables using a log base 10 transform, and plotting the GGPairs again to see if we have more normally distributed variables now.
+
+
+```{r include=FALSE}
+# create transformed dataframe
+d_tf <- d
+
+# log10
+d_tf$Number.of.Long.Trips = log10(d_tf$Number.of.Long.Trips)
+
+# log10
+d_tf$Series_Complete_Pop_Pct = log10(d_tf$Series_Complete_Pop_Pct)
+
+# log10
+d_tf$County.POP = log10(d_tf$County.POP)
+
+# log10
+d_tf$County_Median_Income = log10(d_tf$County_Median_Income)
+
+# log10
+d_tf$unemployment_pct_2020 = log10(d_tf$unemployment_pct_2020)
+
+# log10
+d_tf$MEDIAN_AGE_TOT = log10(d_tf$MEDIAN_AGE_TOT)
+
+
+```
+
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+# Plot untransformed ggpairs
+
+pm2 <- ggpairs(d_tf, 1:7,
+    title = "Log Transformed: GGPairs plots for Outcome and Features",
+    axisLabels="none"
+)
+pm2
+
+```
+
+
+All of the variables' distributions look much more normal now. The `County_Median_Income` still looks a bit right-skewed. We could go one step further down on the box-cox ladder of powers to transform this feature using a reciprocal root, but that comes at the cost of difficulty in interpreting the coefficient for `County_Median_Income`. We will choose to log base 10 transform all the variables.
+
+From the bar chart for `isRepublican` we can see we have slightly more Republican counties in the dataset than Democratic counties, but the number of counties are almost equal. The Republican counties do have a lower number of long trips taken, lower vaccination rate, lower county population, lower median income, lower unemployment percentage, but higher median age.
+
+```{r include=FALSE}
+
+# Code plot for making our final df.
+
+d_log10 = d_tf
+
+d_log10 = rename(d_log10, Number.of.Long.Trips_log10 = Number.of.Long.Trips, Series.Complete.Pop.Pct_log10 = Series_Complete_Pop_Pct, County.POP_log10 = County.POP, County.Median.Income_log10 = County_Median_Income, Unemployment.Pct_log10 = unemployment_pct_2020, Median.Age_log10 = MEDIAN_AGE_TOT)
+
+```
+
+
+#### Variable Table
+
+Vijay - Add a table relating our final variable names to what they actually mean here
+
+```{r}
+names(d_log10)
+```
+
+Table Here:
+
+3 columns. 1st has name of variable in data as above. 2nd has names of variables used in latex below. 3rd is description.
+
+
+#### Akaike Information Criterion
+
+With our transformed variables, we run the Akaike Information Criterion (AIC) to see which models fit the given data the most. For the test, we begin with our limited model and we have our full possible model as including every covariate.
+
+**Limited Model:**
+
+
+$$f_1(\text{Long_Distance_Trips }) =   \beta_0 +  \beta_1    f_2(\text{Fully_Vaccinated_Pct})$$
+
+
+
+
+**Full Model:**
+
+$$f_1(\text{Long_Distance_Trips }) =   \beta_0 +  \beta_1    f_2(\text{Fully_Vaccinated_Pct}) + \\ \beta_2 f_3(\text{County_Population}) + \beta_3 f_4(\text{Median_County_Income}) + \beta_4 \text{isRepublican} + \\
+\beta_5    f_5(\text{Unemployment_Pct }) + \beta_6    f_7(\text{Median_Age})$$
+
+
+
+Where the transformations are:
+
+$$f_1(x) = \log_{10}(x) \\
+f_2(x) = \log_{10}(x) \\
+f_3(x) = \log_{10}(x) \\
+f_4(x) = \log_{10}(x) \\
+f_5(x) = \log_{10}(x) \\ 
+f_6(x) = \log_{10}(x) \\ 
+f_7(x) = \log_{10}(x)$$
+
+
+
+**Running the AIC Test**:
+
+
+
+
+```{r echo=FALSE}
+step(
+  lm(formula = Number.of.Long.Trips_log10 ~ Series.Complete.Pop.Pct_log10, data = d_log10), 
+  list(upper = lm(formula = Number.of.Long.Trips_log10 ~ Series.Complete.Pop.Pct_log10 + County.POP_log10 + County.Median.Income_log10 + isRepublican + Unemployment.Pct_log10 + Median.Age_log10, data = d_log10)), 
+  direction = "forward")
+```
+
+The AIC tests show that the model with the lowest AIC score, which fits the data the best, is actually the model that only excludes the unemployment percentage variable `Unemployment.Pct_log10`. This lowest AIC model will be our model 3. Our model 2 will be the model that includes the vaccination rate, county population, and the median age (`Series.Complete.Pop.Pct_log10`, `County.POP_log10`, `Median.Age_log10`). The AIC of this model 2 is -517.67 and choosing model 3 only decreases the AIC by approximately 2. Model 2 has a limited number of controls, but should capture the data almost as well as our best model 3 and these 3 variables are not going to be multicollinear.
+
+
+### Models
+
+
+We present the following three models for our report.
+
+**Limited Model:**
+
+$$f_1(\text{Long_Distance_Trips }) =   \beta_0 +  \beta_1    f_2(\text{Fully_Vaccinated_Pct})$$
+
+
+
+**Model 2:**
+
+$$f_1(\text{Long_Distance_Trips }) =   \beta_0 +  \beta_1    f_2(\text{Fully_Vaccinated_Pct}) + \\ \beta_2 f_3(\text{County_Population}) + \beta_3    f_4(\text{Median_Age})$$
+
+**Model 3:**
+
+$$f_1(\text{Long_Distance_Trips }) =   \beta_0 +  \beta_1    f_2(\text{Fully_Vaccinated_Pct}) + \\ \beta_2 f_3(\text{County_Population}) + \beta_3    f_4(\text{Median_Age}) + \\
+\beta_4 \text{isRepublican} + \beta_3 f_5(\text{Median_County_Income})$$
+
+
+Our transformations are:
+
+$$f_1(\text{Long_Distance_Trips }) = \log_{10}(\text{Long_Distance_Trips }) \\
+f_2(\text{Fully_Vaccinated_Pct}) = \log_{10}(\text{Fully_Vaccinated_Pct}) \\
+f_3(\text{County_Population}) = \log_{10}(\text{County_Population}) \\
+f_4(\text{Median_Age}) = \log_{10}(\text{Median_Age}) \\
+f_5(\text{Median_County_Income}) = \log_{10}(\text{Median_County_Income})$$
+
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+model_limited = lm(formula = Number.of.Long.Trips_log10 ~ Series.Complete.Pop.Pct_log10, data = d_log10)
+
+model_2 = lm(formula = Number.of.Long.Trips_log10 ~ Series.Complete.Pop.Pct_log10 + 
+    County.POP_log10 + Median.Age_log10, data = d_log10)
+
+model_3 = lm(formula = Number.of.Long.Trips_log10 ~ Series.Complete.Pop.Pct_log10 + 
+    County.POP_log10 + Median.Age_log10 + isRepublican + County.Median.Income_log10, 
+    data = d_log10)
+
+```
+
+
+
+## 3. A Regression Table
+> You should display all of your model specifications in a regression table, using a package like stargazer to format your output. It should be easy for the reader to find the coefficients that represent key effects near the top of the regression table, and scan horizontally to see how they change from specification to specification. Make sure that you display the most appropriate standard errors in your table.
+
+> In your text, comment on both statistical significance and practical significance. You may want to include statistical tests besides the standard t-tests for regression coefficients.
+
+Regression Table using Robust Standard Errors:
+
+```{r message=FALSE, warning=FALSE}
+stargazer(
+   model_limited, model_2, model_3,
+   type = 'text',
+   se = list(get_robust_se(model_limited), get_robust_se(model_2), get_robust_se(model_3)) # use robust standard errors
+   )
+```
+
+
+
+### Statistical Significance
+
+Constants do not mean anything since we cannot have 0.
+
+Have statistical significance.
+
+### Practical Significance
+
+Do not have practical significance b/c a 10% increase in vaccine rate (reasonable increase in the short term) means a 4.2% (model 3) or 5.6% (model 2) decrease in number of tourism trips taken. If Disney was a destination expecting 1000 visitors for in a week for example, then getting 944 visitors instead does not warrant significant action in terms of promotion or switching over to maintenance over operation.
+
+
+## 4. Limitations of your Model
+> As a team, evaluate all of the CLM assumptions that must hold for your model. However, do not report an exhaustive examination all 5 CLM assumptions in the main report. Instead, bring forward only those assumptions that you or your reader might think pose significant problems for your analysis. For each problem that you identify, describe the statistical consequences. If you are able to identify any strategies to mitigate the consequences, explain these strategies.
+
+Our model shows a decrease in trips taken with increasing vaccination rate. However, if vaccination rates were in the realm of 70% to 90% we would not expect this trend to hold since it means that the United States, or the West Coast States at least, are in a different state of the Pandemic than now. In short, our model does not extend to very large increases in vaccination rate that might put most counties to be almost fully vaccinated. Instead, our model provides causal insight into what small, reasonable increases in vaccination rate would impact tourism trips taken now.
+
+```{r include=FALSE}
+# add residuals into our data
+d_log10 <- d_log10 %>%  
+  mutate(model_limited_residuals = resid(model_limited)) # model predict - actual
+
+d_log10 <- d_log10 %>% 
+  mutate(model_limited_prediction = predict(model_limited))
+
+d_log10 <- d_log10 %>%  
+  mutate(model_2_residuals = resid(model_2)) # model predict - actual
+
+d_log10 <- d_log10 %>% 
+  mutate(model_2_prediction = predict(model_2))
+
+d_log10 <- d_log10 %>%  
+  mutate(model_3_residuals = resid(model_3)) # model predict - actual
+
+d_log10 <- d_log10 %>% 
+  mutate(model_3_prediction = predict(model_3))
+```
+
+### CLM Assumption 1: IID
+
+
+
+### CLM Assumption 2: Linear Conditional Expectation
+
+```{r eval=FALSE, include=FALSE}
+plot(model_limited,which=1)
+```
+
+
+```{r eval=FALSE, message=FALSE, warning=FALSE, include=FALSE}
+# model 1
+
+plot_model_1a <- d_log10 %>%  
+  ggplot(aes(x = Series.Complete.Pop.Pct_log10, y = Number.of.Long.Trips_log10)) + 
+  geom_point() + stat_smooth()
+
+plot_model_1b <- d_log10 %>%  
+  ggplot(aes(x = Series.Complete.Pop.Pct_log10, y = model_limited_residuals)) + 
+  geom_point() + stat_smooth()
+
+(plot_model_1a / plot_model_1b)
+
+```
+
+
+
+
+```{r}
+plot(model_2,which=1)
+```
+
+
+
+```{r message=FALSE}
+# model 2
+
+plot_model_2a <- d_log10 %>%  
+  ggplot(aes(x = Series.Complete.Pop.Pct_log10, y = model_2_residuals)) + 
+  geom_point() + stat_smooth()
+
+plot_model_2b <- d_log10 %>% 
+  ggplot(aes(x = County.POP_log10, y = model_2_residuals)) + 
+  geom_point() + stat_smooth()
+
+plot_model_2c <- d_log10 %>% 
+  ggplot(aes(x = Median.Age_log10, y = model_2_residuals)) + 
+  geom_point() + stat_smooth()
+
+plot_model_2d <- d_log10 %>%  
+  ggplot(aes(x = model_2_prediction, y = model_2_residuals)) + 
+  geom_point() + stat_smooth()
+
+(plot_model_2a | plot_model_2b) / (plot_model_2c | plot_model_2d)
+
+```
+
+
+
+
+```{r}
+plot(model_3,which=1)
+```
+
+
+
+```{r message=FALSE, warning=FALSE}
+# model 3
+
+plot_model_3a <- d_log10 %>%  
+  ggplot(aes(x = Series.Complete.Pop.Pct_log10, y = model_3_residuals)) + 
+  geom_point() + stat_smooth()
+
+plot_model_3b <- d_log10 %>% 
+  ggplot(aes(x = County.POP_log10, y = model_3_residuals)) + 
+  geom_point() + stat_smooth()
+
+plot_model_3c <- d_log10 %>% 
+  ggplot(aes(x = Median.Age_log10, y = model_3_residuals)) + 
+  geom_point() + stat_smooth()
+
+plot_model_3d <- d_log10 %>% 
+  ggplot(aes(x = as.numeric(isRepublican), y = model_3_residuals)) + 
+  geom_point() + stat_smooth()
+
+plot_model_3e <- d_log10 %>% 
+  ggplot(aes(x = County.Median.Income_log10, y = model_3_residuals)) + 
+  geom_point() + stat_smooth()
+
+plot_model_3f <- d_log10 %>%  
+  ggplot(aes(x = model_3_prediction, y = model_3_residuals)) + 
+  geom_point() + stat_smooth()
+
+(plot_model_3a | plot_model_3b) / (plot_model_3c | plot_model_3d) / (plot_model_3e | plot_model_3f)
+
+```
+
+
+### CLM Assumption 3: No Perfect Multicollinearity
+
+Since we did not get NA's or variables dropped in our regression table, 
+*perfect* multicollinearity does not exist in our model. We check for near perfect multicollinearity through VIF tests of our model. If a variable's VIF is over 4, then that variable is collinear with atleast another and should be considered for dropping. 
+
+
+```{r}
+car::vif(model_2)
+
+```
+
+
+```{r}
+car::vif(model_3)
+
+```
+
+Neither model 2 nor model 3 have any VIFs exceeding 4, so no variables in either of these models are near perfectly multicollinear. We meet this CLM assumption for model 2 and model 3.
+
+### CLM Assumption 4: Homoskedastic Conditional Variance
+
+
+```{r}
+# model 1: Ocular Method Checking for Homoskedastic Conditional Variance
+plot(model_2,which=3)
+
+# model 2: Ocular Method Checking for Homoskedastic Conditional Variance
+plot(model_3,which=3)
+
+
+```
+
+
+```{r}
+# Model 2: Breusch-Pagan test against heteroskedasticity.
+bptest(model_2)
+
+# Model 3: Breusch-Pagan test against heteroskedasticity.
+bptest(model_3)
+
+```
+
+The Breusch-Pagan test rejects the null hypothesis for homoskedastic conditional variance for models 2 & 3. We should use robust standard errors in our reporting because we do not have homoskedasticity and our models do not meet this CLM assumption.
+
+### CLM Assumption 5: Normally Distributed Errors
+
+```{r}
+# Ocular Method: QQNorm plots:
+
+# car::qqPlot(model_limited)
+car::qqPlot(model_2)
+car::qqPlot(model_3)
+```
+
+
+
+```{r}
+# Ocular Method: Histograms of Residuals:
+
+# hist(model_limited$residuals)
+hist(model_2$residuals)
+hist(model_3$residuals)
+```
+
+
+
+```{r}
+# Shapiro-Wilk’s test for normality:
+
+# For Model 2
+shapiro.test(d_log10$model_2_residuals)
+
+# For Model 3
+shapiro.test(d_log10$model_3_residuals)
+```
+
+Running the Shapiro-Wilk normality test on the residuals of model 2 and model 3 both result in a p-value exceeding 0.05. This means we fail to reject the null hypothesis of normally distributed residuals. We can assume that Model 2 and Model 3 have normally distributed residuals.
+
+> Note that you may need to change your model specifications in response to violations of the CLM.
+
+## 5. Discussion of Omitted Variables
+> If the team has taken up an explanatory (i.e. causal) question to evaluate, then identify what you think are the most important omitted variables that bias results you care about. For each variable you name, you should reason about the direction of bias caused by omitting this variable. If you can argue whether the bias is large or small, that is even better. State whether you have any variables available that may proxy (even imperfectly) for the omitted variable. Pay particular attention to whether each omitted variable bias is towards zero or away from zero. You will use this information to judge whether the effects you find are likely to be real, or whether they might be entirely an artifact of omitted variable bias.
+
+
+
+
+
+## 6. Conclusion
+> Make sure that you end your report with a discussion that distills key insights from your estimates and addresses your research question.
+
+Our analysis shows that tourism demand is slightly decreasing with rising vaccination rates, but not at a practically significant amount. 
+- Since we have decrease in trips with vaccine rate, but the result is not practically significant:
+
+- Do not promote tourism now because people are traveling less as vaccination rates increase slowly.
+- Continue maintaining the tourism sites because demand is not growing and current tourism business operations since the decrease in demand is not large enough to stifle profits.
+- Reevaluate promoting tourism in the future when the vaccination rates are much higher across counties. The Covid-19 climate in the West Coast will be different than now if all vaccination rates are above some threshold, like 70% for example.

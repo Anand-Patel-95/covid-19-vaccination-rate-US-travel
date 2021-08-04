@@ -1,0 +1,73 @@
+---
+title: "download_data"
+author: "Anand Patel"
+date: "7/17/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(stargazer)
+
+setwd("/home/rstudio/w203/lab-2-section8-team5-lab2-avv")
+
+```
+
+
+```{r}
+vacc_county_original_df <- read.csv("./src/data/COVID-19_Vaccinations_in_the_United_States_County.csv")
+
+```
+
+```{r}
+nrow(vacc_county_original_df[vacc_county_original_df$Recip_State == "CA" &  (vacc_county_original_df$Series_Complete_Pop_Pct > 0), ])
+```
+> Airbnb data exploration
+
+```{r}
+listings_sanfrancisco_airbnb_df <- read.csv("./src/data/listings_sanfrancisco_airbnb.csv")
+```
+
+```{r}
+
+# https://www.littlemissdata.com/blog/inspectdf 
+devtools::install_github("alastairrushworth/inspectdf")
+```
+
+```{r}
+library(inspectdf)
+library(readr)
+
+```
+
+```{r}
+#ggplot(data, aes(x=category)) + geom_histogram()
+# show_plot(inspect_types(data), col_palette = 4)
+
+x <- inspect_types(data)
+show_plot(x, col_palette = 1, plot_type = 1)
+
+inspect_mem(data) %>% show_plot(col_palette = 5)
+
+inspect_imb(data) %>% show_plot(col_palette = 5)
+
+inspect_cat(data) %>% show_plot(col_palette = 5)
+
+inspect_cor(data) %>% show_plot(col_palette = 5)
+
+inspect_na(data) %>% show_plot(col_palette = 5)
+
+
+```
+
+
+$$\text{Long_Distance_Trips } =   \beta_0 +  \beta_1    \text{Fully_Vaccinated_Pct}$$
+
+$$\text{Long_Distance_Trips } =   \beta_0 +  \beta_1    \text{Fully_Vaccinated_Pct } + \beta_2    \text{Median_County_Income } + \beta_3    \text{County_Population }$$
+
+$$\text{Long_Distance_Trips } =   \beta_0 +  \beta_1    \text{Fully_Vaccinated_Pct } + \beta_2    \text{Median_County_Income } + \beta_3    \text{County_Population } + \beta_4    \text{County_Party_Leaning }$$
+
+
+
+
