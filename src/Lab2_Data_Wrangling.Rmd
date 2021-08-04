@@ -2,7 +2,9 @@
 title: "Data Wrangling"
 author: "Anand Patel"
 date: "7/31/2021"
-output: html_document
+output:
+  html_document: default
+  pdf_document: default
 ---
 
 ## Libraries
@@ -44,8 +46,10 @@ column_classes <- c("character", "Date", "character", "character",
                     "integer", "integer", "integer", "integer",
                     "integer", "integer", "character")
 
-# Read the input file with the trips information in the sates of California, 
+# Read the input file with the trips information in the states of California, 
 # Oregon and Washington.
+alltrips <- read.csv('Trips_by_Distance.csv', header = TRUE, colClasses= column_classes,
+                     stringsAsFactors = FALSE)
 
 # Description of alltrips
 str(alltrips)
